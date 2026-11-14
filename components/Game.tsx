@@ -180,29 +180,41 @@ function MobileTopBar({ barRef }: { barRef: RefObject<HTMLElement | null> }) {
     return () => window.clearInterval(t);
   }, []);
   const pad = (n: number) => String(n).padStart(2, "0");
+  // màu cố định (hex), không theo bảng màu đảo của giao diện tối — thanh luôn là kính tối chữ trắng
   return (
     <header
       ref={barRef}
-      className="absolute inset-x-0 top-0 z-30 flex h-8 items-center gap-1.5 border-b border-white/60 bg-white/80 px-2.5 text-xs font-bold text-slate-600 shadow-sm backdrop-blur-md box-content"
+      className="absolute inset-x-0 top-0 z-30 box-content flex h-10 items-center gap-2 rounded-b-2xl bg-[#0f172a]/85 px-2.5 text-white shadow-[0_4px_16px_rgb(0_0_0/0.25)] backdrop-blur-md"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
-      <span className="text-base leading-none">🦊</span>
-      <span className="font-display truncate bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-sm font-extrabold italic text-transparent">
-        LINH CÁO
+      {/* dải màu thương hiệu mảnh dưới đáy */}
+      <span className="pointer-events-none absolute inset-x-4 bottom-0 h-[2px] rounded-full bg-gradient-to-r from-[#fb923c] via-[#ec4899] to-[#38bdf8] opacity-80" />
+
+      <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[#fb923c] to-[#ec4899] text-base shadow-md">🦊</span>
+      <span className="min-w-0 leading-none">
+        <span className="font-display block truncate text-[15px] font-extrabold tracking-wide text-white">Linh Cáo</span>
+        <span className="block text-[8px] font-extrabold tracking-[0.3em] text-[#fdba74]">BADMINTON</span>
       </span>
-      <span className="ml-auto flex shrink-0 items-center gap-2 tabular-nums">
-        <span title="Số sân">🏟️ {courts.length}</span>
-        <span className="text-orange-600" title="Đang đánh">
-          🏸 {playing}
-        </span>
-        <span className="text-violet-600" title="Đang chờ">
-          🪑 {waiting}
-        </span>
-        <span className="rounded-full bg-slate-800 px-2 py-0.5 text-white">
+
+      <span className="ml-auto flex shrink-0 items-center gap-1 text-[11px] font-bold tabular-nums">
+        <Stat dot="#94a3b8" value={courts.length} label="sân" />
+        <Stat dot="#fb923c" value={playing} label="đánh" pulse={playing > 0} />
+        <Stat dot="#a78bfa" value={waiting} label="chờ" />
+        <span className="font-display ml-0.5 rounded-lg bg-[#ffffff] px-1.5 py-0.5 text-[13px] font-extrabold text-[#0f172a]">
           {pad(now.getHours())}:{pad(now.getMinutes())}
         </span>
       </span>
     </header>
+  );
+}
+
+function Stat({ dot, value, label, pulse }: { dot: string; value: number; label: string; pulse?: boolean }) {
+  return (
+    <span className="flex items-center gap-1 rounded-full bg-white/10 py-0.5 pl-1.5 pr-2 text-[#f1f5f9]">
+      <span className={`size-1.5 rounded-full ${pulse ? "animate-pulse" : ""}`} style={{ background: dot }} />
+      <span className="font-extrabold">{value}</span>
+      <span className="font-semibold text-[#94a3b8]">{label}</span>
+    </span>
   );
 }
 
