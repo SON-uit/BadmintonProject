@@ -169,8 +169,8 @@ function TopBar({ barRef, onOpenStats, onFit }: { barRef: RefObject<HTMLElement 
 }
 
 /**
- * Thanh trên — điện thoại: một dải mỏng một dòng sát mép trên (logo nhỏ · trạng thái · giờ)
- * để nhường tối đa chỗ cho sân. Mọi nút chức năng nằm ở thanh dưới.
+ * Thanh trên — điện thoại: dải tối dính trên cùng, tên rõ + thông số to.
+ * Đang kéo / chạm trên sân thì trượt lên ẩn đi, thả tay một chút là hiện lại. Mọi nút chức năng nằm ở thanh dưới.
  */
 function MobileTopBar({ barRef, hidden }: { barRef: RefObject<HTMLElement | null>; hidden: boolean }) {
   const courts = useGame((s) => s.courts);
@@ -182,43 +182,50 @@ function MobileTopBar({ barRef, hidden }: { barRef: RefObject<HTMLElement | null
     return () => window.clearInterval(t);
   }, []);
   const pad = (n: number) => String(n).padStart(2, "0");
-  // màu cố định (hex), không theo bảng màu đảo của giao diện tối — thanh luôn là kính tối chữ trắng
+  // màu cố định (hex), không theo bảng màu đảo của giao diện tối — thanh luôn tối chữ trắng
   return (
     <header
       ref={barRef}
-      // thao tác trên sân: trượt lên ẩn đi (vị trí đo vẫn giữ nguyên nên camera không giật)
-      className={`absolute inset-x-0 top-0 z-30 box-content flex h-8 items-center gap-1.5 rounded-b-xl bg-[#0f172a]/80 px-2 text-white shadow-[0_2px_10px_rgb(0_0_0/0.25)] backdrop-blur-md transition-transform duration-300 ${
-        hidden ? "-translate-y-full" : ""
+      // vị trí đo vẫn giữ nguyên khi trượt ẩn nên camera / các nút không bị nhảy
+      className={`absolute inset-x-0 top-0 z-30 box-content flex h-12 items-center gap-2 bg-[#0b1220]/95 px-2.5 text-white shadow-[0_3px_14px_rgb(0_0_0/0.35)] backdrop-blur-md transition-transform duration-300 ease-out ${
+        hidden ? "-translate-y-[110%]" : ""
       }`}
       style={{ paddingTop: "env(safe-area-inset-top)" }}
       aria-hidden={hidden}
     >
-      {/* dải màu thương hiệu mảnh dưới đáy */}
-      <span className="pointer-events-none absolute inset-x-3 bottom-0 h-[2px] rounded-full bg-gradient-to-r from-[#fb923c] via-[#ec4899] to-[#38bdf8] opacity-80" />
+      {/* dải màu thương hiệu dưới đáy */}
+      <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-[#fb923c] via-[#ec4899] to-[#38bdf8]" />
 
-      <span className="grid size-6 shrink-0 place-items-center rounded-md bg-gradient-to-br from-[#fb923c] to-[#ec4899] text-sm">🦊</span>
-      <span className="font-display min-w-0 truncate text-sm font-extrabold leading-none tracking-wide text-white">
-        Linh Cáo <span className="text-[9px] font-extrabold tracking-[0.2em] text-[#fdba74]">BADMINTON</span>
+      <span className="grid size-9 shrink-0 -rotate-6 place-items-center rounded-xl bg-gradient-to-br from-[#fb923c] to-[#ec4899] text-xl shadow-md">
+        🦊
+      </span>
+      <span className="min-w-0 leading-none">
+        <span className="font-display block truncate text-lg font-extrabold tracking-wide text-[#ffffff]">LINH CÁO</span>
+        <span className="mt-0.5 block text-[10px] font-extrabold tracking-[0.28em] text-[#fdba74]">BADMINTON</span>
       </span>
 
-      <span className="ml-auto flex shrink-0 items-center gap-1 text-[10px] font-bold tabular-nums">
-        <Stat dot="#94a3b8" value={courts.length} label="sân" />
-        <Stat dot="#fb923c" value={playing} label="đánh" pulse={playing > 0} />
-        <Stat dot="#a78bfa" value={waiting} label="chờ" />
-        <span className="font-display ml-0.5 rounded-md bg-[#ffffff] px-1.5 text-xs font-extrabold leading-5 text-[#0f172a]">
-          {pad(now.getHours())}:{pad(now.getMinutes())}
+      <span className="ml-auto flex shrink-0 items-stretch gap-1">
+        <Stat color="#e2e8f0" value={courts.length} label="Sân" />
+        <Stat color="#fb923c" value={playing} label="Đánh" pulse={playing > 0} />
+        <Stat color="#c4b5fd" value={waiting} label="Chờ" />
+        <span className="font-display flex flex-col items-center justify-center rounded-lg bg-[#ffffff] px-2 leading-none text-[#0b1220]">
+          <span className="text-base font-extrabold tabular-nums">
+            {pad(now.getHours())}:{pad(now.getMinutes())}
+          </span>
         </span>
       </span>
     </header>
   );
 }
 
-function Stat({ dot, value, label, pulse }: { dot: string; value: number; label: string; pulse?: boolean }) {
+/** Ô thông số: số to ở trên, nhãn nhỏ ở dưới. */
+function Stat({ color, value, label, pulse }: { color: string; value: number; label: string; pulse?: boolean }) {
   return (
-    <span className="flex items-center gap-0.5 rounded-full bg-white/10 py-px pl-1.5 pr-1.5 text-[#f1f5f9]">
-      <span className={`size-1.5 rounded-full ${pulse ? "animate-pulse" : ""}`} style={{ background: dot }} />
-      <span className="font-extrabold">{value}</span>
-      <span className="font-semibold text-[#94a3b8]">{label}</span>
+    <span className="flex min-w-10 flex-col items-center justify-center rounded-lg bg-[#ffffff1a] px-1.5 py-0.5 leading-none">
+      <span className={`font-display text-lg font-extrabold tabular-nums ${pulse ? "animate-pulse" : ""}`} style={{ color }}>
+        {value}
+      </span>
+      <span className="mt-px text-[9px] font-bold uppercase tracking-wide text-[#94a3b8]">{label}</span>
     </span>
   );
 }
@@ -650,7 +657,7 @@ export default function Game() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [fitKey, setFitKey] = useState(0);
   const [tab, setTab] = useState<MobileTab>("court");
-  // điện thoại: đang chạm / kéo trên sân thì thu thanh trên lại, thả tay ~2.5 giây sau hiện lại
+  // điện thoại: đang chạm / kéo trên sân thì thu thanh trên lại, thả tay ~1.2 giây sau hiện lại
   const [barHidden, setBarHidden] = useState(false);
   const showTimer = useRef<number | undefined>(undefined);
   const sceneTouching = useRef(false);
@@ -664,7 +671,7 @@ export default function Game() {
       if (!sceneTouching.current) return;
       sceneTouching.current = false;
       window.clearTimeout(showTimer.current);
-      showTimer.current = window.setTimeout(() => setBarHidden(false), 2500);
+      showTimer.current = window.setTimeout(() => setBarHidden(false), 1200);
     };
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
@@ -727,7 +734,7 @@ export default function Game() {
 
   return (
     <main
-      className="game-bg relative h-dvh w-screen select-none overflow-hidden bg-gradient-to-b from-[#1e293b] via-[#2a3448] to-[#3b475d] text-slate-800"
+      className="game-bg relative h-dvh w-screen select-none overflow-hidden bg-gradient-to-b from-sky-400 via-sky-300 to-sky-100 text-slate-800"
       data-compact={small}
       data-mobile={mobile}
       style={vars}

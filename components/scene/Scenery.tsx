@@ -1,8 +1,9 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { seeded } from "@/lib/appearance";
 import type { ArenaBounds } from "@/lib/layout";
 import { matchesOfDay } from "@/lib/logic";
 import { useGame } from "@/lib/store";
@@ -12,9 +13,11 @@ import { TIER_DEPTH, TIERS } from "./Crowd";
 export const STAND_DEPTH = TIERS * TIER_DEPTH + 0.6;
 /** Khoảng lùi sau khán đài phía sau dành cho bảng điện tử. */
 export const SCOREBOARD_ROOM = 3.5;
+/** Khoảng cỏ quanh khu thi đấu (trước là đường chạy) — chỗ dựng cột đèn, không trồng cây. */
+const APRON = 2.5;
 const PALETTE = ["#ff4d5a", "#ffc800", "#2f86ff", "#06c98b", "#ff2e93", "#8b46ff", "#ff8a1f", "#00b4f0"];
 
-/** Khu nhà thi đấu: hình chữ nhật ôm sàn đấu + khán đài, tường bao nằm ở mép ngoài. */
+/** Khu "sân vận động": hình chữ nhật bo góc ôm sát sàn đấu + khán đài; đường chạy nằm ngay bên ngoài. */
 interface Venue {
   hw: number;
   hd: number;
@@ -28,6 +31,207 @@ function venueOf(bounds: ArenaBounds, sides: boolean): Venue {
   const zFront = bounds.maxZ + 3;
   const hd = (zFront - zBack) / 2;
   return { hw, hd, cz: (zFront + zBack) / 2, r: Math.min(8, hw - 1, hd - 1) };
+}
+
+/* ---------- cỏ sọc như sân bóng ---------- */
+function Grass() {
+  const texture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#9be06a";
+    ctx.fillRect(0, 0, 64, 64);
+    ctx.fillStyle = "#8ed65c";
+    ctx.fillRect(0, 0, 32, 64);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(50, 50);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }, []);
+  useEffect(() => () => texture.dispose(), [texture]);
+  return (
+    <mesh rotation-x={-Math.PI / 2} position-y={-0.3} receiveShadow>
+      <circleGeometry args={[400, 48]} />
+      <meshToonMaterial map={texture} />
+    </mesh>
+  );
+}
+
+/* ---------- cây xanh rải quanh ---------- */
+const TREE_CANDIDATES = (() => {
+  const rnd = seeded(77);
+  return Array.from({ length: 320 }, () => ({
+    x: (rnd() - 0.5) * 230,
+    z: (rnd() - 0.5) * 210 + 10,
+    scale: 0.8 + rnd() * 0.9,
+    tint: rnd(),
+  }));
+})();
+const TREE_GREENS = ["#4fb646", "#63c653", "#3fa53c", "#7bd660"];
+
+function Trees({ venue }: { venue: Venue }) {
+  const trunk = useRef<THREE.InstancedMesh>(null);
+  const crown = useRef<THREE.InstancedMesh>(null);
+  const top = useRef<THREE.InstancedMesh>(null);
+  // vị trí ứng viên cố định; chỉ bỏ những cây rơi vào sân / đường chạy — đổi số sân thì cây không "nhảy" chỗ
+  const trees = useMemo(() => {
+    const pad = APRON + 1.5;
+    return TREE_CANDIDATES.filter((t) => {
+      const inVenue = Math.abs(t.x) < venue.hw + pad && Math.abs(t.z - venue.cz) < venue.hd + pad;
+      // chừa trống phía trước cho camera nhìn vào
+      const blocksCamera = t.z > venue.cz + venue.hd + pad && Math.abs(t.x) < venue.hw + 6;
+      return !inVenue && !blocksCamera;
+    }).slice(0, 150);
+  }, [venue.hw, venue.hd, venue.cz]);
+  const count = trees.length;
+
+  useLayoutEffect(() => {
+    const dummy = new THREE.Object3D();
+    const color = new THREE.Color();
+    trees.forEach((t, i) => {
+      dummy.scale.setScalar(t.scale);
+      dummy.position.set(t.x, 0.6 * t.scale - 0.3, t.z);
+      dummy.updateMatrix();
+      trunk.current?.setMatrixAt(i, dummy.matrix);
+      dummy.position.y = 2.2 * t.scale - 0.3;
+      dummy.updateMatrix();
+      crown.current?.setMatrixAt(i, dummy.matrix);
+      dummy.position.y = 3.3 * t.scale - 0.3;
+      dummy.scale.setScalar(t.scale * 0.68);
+      dummy.updateMatrix();
+      top.current?.setMatrixAt(i, dummy.matrix);
+      const green = color.set(TREE_GREENS[Math.floor(t.tint * TREE_GREENS.length)]);
+      crown.current?.setColorAt(i, green);
+      top.current?.setColorAt(i, green);
+    });
+    for (const ref of [trunk, crown, top]) {
+      if (!ref.current) continue;
+      ref.current.instanceMatrix.needsUpdate = true;
+      if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
+    }
+  }, [trees]);
+
+  if (count === 0) return null;
+  return (
+    <group key={count}>
+      <instancedMesh ref={trunk} args={[undefined, undefined, count]} frustumCulled={false}>
+        <cylinderGeometry args={[0.22, 0.3, 1.2, 6]} />
+        <meshToonMaterial color="#8a5a35" />
+      </instancedMesh>
+      <instancedMesh ref={crown} args={[undefined, undefined, count]} frustumCulled={false} castShadow>
+        <icosahedronGeometry args={[1.45, 1]} />
+        <meshToonMaterial />
+      </instancedMesh>
+      <instancedMesh ref={top} args={[undefined, undefined, count]} frustumCulled={false}>
+        <icosahedronGeometry args={[1.45, 1]} />
+        <meshToonMaterial />
+      </instancedMesh>
+    </group>
+  );
+}
+
+/* ---------- cột đèn sân vận động ---------- */
+function Floodlight({ x, z, lookZ }: { x: number; z: number; lookZ: number }) {
+  const height = 13;
+  return (
+    <group position={[x, -0.3, z]}>
+      <mesh position-y={height / 2} castShadow>
+        <cylinderGeometry args={[0.16, 0.3, height, 8]} />
+        <meshToonMaterial color="#d5dbe6" />
+      </mesh>
+      {/* dàn đèn quay về giữa sân, hơi chúc xuống */}
+      <group position-y={height} rotation-y={Math.atan2(-x, lookZ - z)}>
+        <group rotation-x={0.5}>
+          <mesh>
+            <boxGeometry args={[3.4, 2.1, 0.35]} />
+            <meshToonMaterial color="#39445c" />
+          </mesh>
+          {[-1.1, 0, 1.1].flatMap((lx) =>
+            [-0.5, 0.5].map((ly) => (
+              <mesh key={`${lx}${ly}`} position={[lx, ly, 0.2]}>
+                <circleGeometry args={[0.38, 14]} />
+                <meshBasicMaterial color="#fff6bf" />
+              </mesh>
+            )),
+          )}
+        </group>
+      </group>
+    </group>
+  );
+}
+
+/* ---------- hàng cờ phấp phới ---------- */
+function Flags({ points }: { points: [number, number][] }) {
+  const cloths = useRef<(THREE.Group | null)[]>([]);
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    cloths.current.forEach((g, i) => {
+      if (!g) return;
+      g.rotation.y = Math.sin(t * 2.4 + i * 1.3) * 0.45 + 0.3;
+      g.scale.x = 0.9 + Math.sin(t * 5 + i) * 0.08;
+    });
+  });
+  return (
+    <>
+      {points.map(([x, z], i) => (
+        <group key={i} position={[x, -0.3, z]}>
+          <mesh position-y={3.1}>
+            <cylinderGeometry args={[0.06, 0.07, 6.2, 6]} />
+            <meshToonMaterial color="#f1f5f9" />
+          </mesh>
+          <mesh position-y={6.25}>
+            <sphereGeometry args={[0.13, 8, 8]} />
+            <meshToonMaterial color="#ffc800" />
+          </mesh>
+          <group
+            position-y={5.55}
+            ref={(g) => {
+              cloths.current[i] = g;
+            }}
+          >
+            <mesh position-x={0.85}>
+              <planeGeometry args={[1.7, 1.05]} />
+              <meshToonMaterial color={PALETTE[i % PALETTE.length]} side={THREE.DoubleSide} />
+            </mesh>
+          </group>
+        </group>
+      ))}
+    </>
+  );
+}
+
+/* ---------- dây cờ đuôi nheo ---------- */
+function Bunting({ from, to, sag = 2.2, count = 18 }: { from: THREE.Vector3Tuple; to: THREE.Vector3Tuple; sag?: number; count?: number }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const [fx, fy, fz] = from;
+  const [tx, ty, tz] = to;
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    const dummy = new THREE.Object3D();
+    const color = new THREE.Color();
+    const yaw = Math.atan2(tx - fx, tz - fz) + Math.PI / 2;
+    for (let i = 0; i < count; i++) {
+      const k = (i + 0.5) / count;
+      // dây võng xuống ở giữa
+      dummy.position.set(fx + (tx - fx) * k, fy + (ty - fy) * k - Math.sin(Math.PI * k) * sag - 0.35, fz + (tz - fz) * k);
+      dummy.rotation.set(Math.PI, yaw, 0);
+      dummy.scale.set(1, 1, 0.12);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+      mesh.setColorAt(i, color.set(PALETTE[i % PALETTE.length]));
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }, [fx, fy, fz, tx, ty, tz, sag, count]);
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, count]} frustumCulled={false}>
+      <coneGeometry args={[0.42, 0.75, 3]} />
+      <meshToonMaterial />
+    </instancedMesh>
+  );
 }
 
 /* ---------- linh vật gà nhảy cổ vũ ---------- */
@@ -199,77 +403,9 @@ function Scoreboard({ x, z, width }: { x: number; z: number; width: number }) {
   );
 }
 
-/* ---------- nhà thi đấu trong nhà: sàn, tường bao, băng rôn, dải đèn ---------- */
-const WALL_H = 13;
-const WALL_T = 0.5;
-
-/** Một mảng tường: thân tường + đai đệm màu dưới chân + băng rôn + dải đèn cửa sổ trên cao. */
-function Wall({ length, seed }: { length: number; seed: number }) {
-  const banners = Math.max(2, Math.floor(length / 7));
-  const step = length / banners;
-  const lamps = Math.max(3, Math.floor(length / 4.5));
-  const lampStep = length / lamps;
-  return (
-    <group>
-      <mesh position-y={WALL_H / 2} receiveShadow>
-        <boxGeometry args={[length, WALL_H, WALL_T]} />
-        <meshToonMaterial color="#334155" />
-      </mesh>
-      {/* đai đệm xanh dưới chân tường */}
-      <mesh position={[0, 1.1, WALL_T / 2 + 0.02]}>
-        <boxGeometry args={[length, 2.2, 0.08]} />
-        <meshToonMaterial color="#1d4ed8" />
-      </mesh>
-      <mesh position={[0, 2.25, WALL_T / 2 + 0.04]}>
-        <boxGeometry args={[length, 0.12, 0.06]} />
-        <meshBasicMaterial color="#facc15" />
-      </mesh>
-      {/* băng rôn treo tường */}
-      {Array.from({ length: banners }, (_, i) => (
-        <mesh key={i} position={[-length / 2 + step * (i + 0.5), 5.6, WALL_T / 2 + 0.03]}>
-          <boxGeometry args={[step * 0.7, 2.2, 0.05]} />
-          <meshToonMaterial color={PALETTE[(i + seed) % PALETTE.length]} />
-        </mesh>
-      ))}
-      {/* dải cửa sổ / đèn trên cao */}
-      {Array.from({ length: lamps }, (_, i) => (
-        <mesh key={i} position={[-length / 2 + lampStep * (i + 0.5), 10.6, WALL_T / 2 + 0.03]}>
-          <boxGeometry args={[lampStep * 0.6, 1.3, 0.05]} />
-          <meshBasicMaterial color="#fff4cf" toneMapped={false} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-function Hall({ venue }: { venue: Venue }) {
-  const back = venue.cz - venue.hd;
-  const width = venue.hw * 2;
-  const depth = venue.hd * 2 + 30; // tường hai bên kéo dài ra phía trước, ngoài khung camera
-  return (
-    <group>
-      {/* sàn nhà thi đấu (ngoài khu sân): nền polyurethane xám xanh */}
-      <mesh rotation-x={-Math.PI / 2} position={[0, -0.32, venue.cz + 10]} receiveShadow>
-        <planeGeometry args={[width + 4, venue.hd * 2 + 60]} />
-        <meshToonMaterial color="#475569" />
-      </mesh>
-      {/* tường sau (sau bảng điện tử) */}
-      <group position={[0, -0.3, back - WALL_T / 2]}>
-        <Wall length={width + WALL_T * 2} seed={0} />
-      </group>
-      {/* tường hai bên, mặt quay vào trong */}
-      {[-1, 1].map((side) => (
-        <group key={side} position={[side * (venue.hw + WALL_T / 2), -0.3, back + depth / 2]} rotation-y={(-side * Math.PI) / 2}>
-          <Wall length={depth} seed={side > 0 ? 3 : 5} />
-        </group>
-      ))}
-    </group>
-  );
-}
-
 /**
- * Bối cảnh nhà thi đấu trong nhà quanh sàn đấu: sàn hall, tường bao có băng rôn và dải đèn,
- * bảng điện tử phía sau, linh vật gà. `sides`: có khán đài hai bên (màn hình ngang).
+ * Bối cảnh sân vận động quanh sàn đấu: cỏ sọc, đường chạy có người chạy bộ, cây, cột đèn,
+ * cờ, dây cờ, linh vật gà và bảng điện tử. `sides`: có khán đài hai bên (màn hình ngang).
  */
 export default function Scenery({ bounds, sides }: { bounds: ArenaBounds; sides: boolean }) {
   const { halfW, minZ, maxZ } = bounds;
@@ -277,10 +413,38 @@ export default function Scenery({ bounds, sides }: { bounds: ArenaBounds; sides:
   const boardWidth = Math.max(8, Math.min(16, halfW * 2 - 2));
   const boardZ = minZ - STAND_DEPTH - 1.4;
 
+  const towerX = venue.hw + APRON;
+  const towerBack = venue.cz - venue.hd - APRON;
+  const towerFront = venue.cz + venue.hd + APRON;
+
+  // cờ: dọc phía sau khán đài hai bên (màn hình ngang), và hai bên bảng điện tử
+  const flags = useMemo(() => {
+    const points: [number, number][] = [];
+    for (const side of [-1, 1]) {
+      for (let x = boardWidth / 2 + 2; x < halfW + 1; x += 3.2) points.push([side * x, boardZ - 0.4]);
+      if (sides) {
+        const fx = side * (halfW + 1.5 + STAND_DEPTH + 0.7);
+        for (let z = minZ + 3; z < maxZ - 3; z += 5) points.push([fx, z]);
+      }
+    }
+    return points;
+  }, [boardWidth, boardZ, halfW, minZ, maxZ, sides]);
+
   return (
     <group>
-      <Hall venue={venue} />
+      <Grass />
+      <Trees venue={venue} />
+
+      <Floodlight x={-towerX} z={towerBack} lookZ={venue.cz} />
+      <Floodlight x={towerX} z={towerBack} lookZ={venue.cz} />
+      <Floodlight x={-towerX} z={towerFront} lookZ={venue.cz} />
+      <Floodlight x={towerX} z={towerFront} lookZ={venue.cz} />
+
       <Scoreboard x={0} z={boardZ} width={boardWidth} />
+      <Bunting from={[-towerX, 11.5, towerBack]} to={[-boardWidth / 2, 7.6, boardZ]} />
+      <Bunting from={[boardWidth / 2, 7.6, boardZ]} to={[towerX, 11.5, towerBack]} />
+      <Flags points={flags} />
+
       <ChickenMascot x={-halfW + 0.9} z={maxZ - 1.6} facing={0.5} phase={0} />
       <ChickenMascot x={halfW - 0.9} z={maxZ - 1.6} facing={-0.5} phase={1.7} />
     </group>

@@ -706,8 +706,9 @@ export const useGame = create<GameState>()(
 
       notify: (text, kind = "info") => {
         const id = uid();
-        set((s) => ({ toasts: [...s.toasts.slice(-3), { id, text, kind }] }));
-        setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 4200);
+        set((s) => ({ toasts: [...s.toasts.slice(-2), { id, text, kind }] }));
+        // toast ngắn: 2 giây (lỗi 3 giây cho kịp đọc)
+        setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), kind === "error" ? 3000 : 2000);
       },
     }),
     {

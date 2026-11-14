@@ -73,7 +73,8 @@ function CameraRig({
     const tanV = tanHalf * (usableH / size.height);
     const tanH = tanHalf * (usableW / size.height);
     // khung cần vừa: chỉ sàn đấu (các sân + sảnh chờ) — sân hiện to nhất có thể
-    const fitHalfW = halfW + FIT_MARGIN;
+    // điện thoại: ôm sát mép ngoài các sân để sân hiện to nhất khi nhìn chính diện
+    const fitHalfW = halfW + (compact ? 0 : FIT_MARGIN);
     const zBack = minZ + 2 - FIT_MARGIN; // sàn có chừa 4.5m phía sau cho nhãn sân, không cần thấy hết
     const zFront = maxZ + FIT_MARGIN;
     const fitHalfD = (zFront - zBack) / 2;
@@ -294,8 +295,8 @@ export default function Scene({ overlay, fitKey, insets, compact }: SceneProps) 
       camera={{ position: [0, 30, 36], fov: 42, near: 0.5, far: 600 }}
       onPointerMissed={() => clearSelection()}
     >
-      {/* trong nhà thi đấu: không khí hơi mờ ấm, xa dần tối lại */}
-      <fog attach="fog" args={[night ? "#111827" : "#2a3448", 140, 420]} />
+
+      <fog attach="fog" args={[night ? "#13284d" : "#cfeeff", night ? 90 : 120, night ? 320 : 380]} />
 
       {/* ban đêm: trời tối, đèn pha sân sáng ấm từ trên xuống */}
       <ambientLight intensity={night ? 0.32 : 1.15} color={night ? "#b9c8ff" : "#ffffff"} />

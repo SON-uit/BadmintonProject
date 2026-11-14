@@ -1,8 +1,8 @@
 /** Bố cục thế giới 3D (đơn vị: mét). Sân cầu lông đôi chuẩn 13.4 × 6.1. */
 export const COURT_W = 6.1;
 export const COURT_L = 13.4;
-/** Thảm quanh sân (mét) — rộng rãi để sân trông thoáng, dễ chạm. */
-export const COURT_MARGIN = 1.6;
+/** Thảm quanh sân (mét). */
+export const COURT_MARGIN = 1.2;
 
 /**
  * Ba kiểu xếp sân:
@@ -12,7 +12,8 @@ export const COURT_MARGIN = 1.6;
  */
 export const SINGLE_ROW_MAX = 8;
 const PORTRAIT_PER_ROW = 2;
-const GAP_X = 3.8;
+// khoảng hở giữa hai sân cạnh nhau — vừa đủ cho viền sân, để sân hiện to nhất (nhất là điện thoại dọc 2 cột)
+const GAP_X = 3;
 const COURT_PITCH = COURT_W + GAP_X;
 /** Khoảng cách tâm giữa hai hàng sân ở màn hình dọc (chừa chỗ cho nhãn sân). */
 const PORTRAIT_ROW_PITCH = COURT_L + COURT_MARGIN * 2 + 3.4;
@@ -134,7 +135,7 @@ export interface ArenaBounds {
 /** Phạm vi sàn thi đấu (bao hết sân và hàng chờ) để dựng sàn, khán đài và căn camera. */
 export function arenaBounds(totalCourts: number, queueCount: number, portrait = false): ArenaBounds {
   const queue = queueLayout(queueCount, totalCourts, portrait);
-  const side = portrait ? 1 : 1.5;
+  const side = portrait ? 0.6 : 1.5;
   const halfW = Math.max((widestRow(totalCourts, portrait) * COURT_PITCH) / 2 + side, queue.width / 2 + side + 0.5);
   const courtRows = portrait ? Math.max(1, Math.ceil(totalCourts / PORTRAIT_PER_ROW)) : 1;
   const minZ = -(courtRows - 1) * PORTRAIT_ROW_PITCH - COURT_L / 2 - COURT_MARGIN - 4.5;
