@@ -179,14 +179,14 @@ function CourtLabel({ court }: { court: Court }) {
 
   return (
     <div
-      className={`pointer-events-auto grid select-none grid-cols-[1fr_auto] items-center gap-x-2 gap-y-1 whitespace-nowrap rounded-2xl border-2 px-2.5 py-1.5 shadow-lg compact:gap-1 compact:rounded-xl compact:px-1.5 compact:py-1 ${
+      className={`pointer-events-auto grid select-none grid-cols-[1fr_auto] items-center gap-x-2 gap-y-1 whitespace-nowrap rounded-2xl border-2 px-2.5 py-1.5 shadow-lg compact:gap-1 compact:rounded-xl compact:px-1.5 compact:py-1 mobile:flex mobile:rounded-full mobile:border-2 mobile:px-2 mobile:py-0.5 ${
         playing ? "border-orange-400 bg-orange-50" : ready ? "border-emerald-400 bg-emerald-50" : "border-white bg-white/95"
       }`}
     >
       <div className="leading-tight">
         <CourtName court={court} />
         <div
-          className={`text-[11px] font-bold compact:text-[10px] ${
+          className={`text-[11px] font-bold compact:text-[10px] mobile:hidden ${
             playing ? "text-orange-600" : ready ? "text-emerald-600" : "text-slate-500"
           }`}
         >
@@ -215,7 +215,7 @@ function CourtLabel({ court }: { court: Court }) {
         </div>
       </div>
       <button
-        className={`btn btn-ghost !px-2 !py-1 !text-xs compact:!min-h-8 compact:!px-2 ${playing ? "opacity-40" : ""}`}
+        className={`btn btn-ghost !px-2 !py-1 !text-xs compact:!min-h-8 compact:!px-2 mobile:hidden ${playing ? "opacity-40" : ""}`}
         title={playing ? "Đang có trận — kết thúc trận trước khi xóa sân" : "Xóa sân"}
         aria-disabled={playing}
         aria-label={`Xóa ${court.name}`}
@@ -242,7 +242,7 @@ function CourtLabel({ court }: { court: Court }) {
         </button>
       ) : (
         <button
-          className="btn btn-amber col-span-2 !py-1 !text-xs compact:!min-h-9 compact:!text-[13px]"
+          className="btn btn-amber col-span-2 !py-1 !text-xs compact:!min-h-9 compact:!text-[13px] mobile:hidden"
           title="Chọn thể loại + tính chất rồi tự xếp người vào sân này"
           aria-label={`Xếp trận cho ${court.name}`}
           onClick={() => openDialog({ kind: "arrange", courtId: court.id })}

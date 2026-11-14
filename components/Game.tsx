@@ -409,50 +409,77 @@ function Elapsed({ since }: { since: number }) {
 }
 
 /**
- * Điện thoại: cột nút gọn bên trái cho mọi sân cần thao tác —
- * ▶ Bắt đầu (sân đủ người) và 🏁 Kết thúc (sân đang đánh, kèm thời gian). Mỗi nút chỉ một dòng.
+ * Điện thoại: cột thao tác gọn bên trái, mỗi sân một dòng (nhãn trên sân chỉ còn tên sân):
+ * ▶ Bắt đầu (đủ người) · 🏁 Kết thúc (đang đánh, kèm thời gian) · 🎲 Xếp trận (còn chỗ) + 🗑️ xóa sân.
  */
 function MobileCourtDock() {
   const courts = useGame((s) => s.courts);
   const startMatch = useGame((s) => s.startMatch);
   const openDialog = useGame((s) => s.openDialog);
-  const ready = courts.filter((c) => c.status === "idle" && c.slots.every(Boolean));
-  const playing = courts.filter((c) => c.status === "playing");
-  if (ready.length + playing.length === 0) return null;
+  const removeCourt = useGame((s) => s.removeCourt);
+  if (courts.length === 0) return null;
+
+  const pill =
+    "flex h-10 min-w-0 max-w-[8.5rem] cursor-pointer items-center gap-1.5 rounded-full py-1 pl-1 pr-3 text-sm font-extrabold shadow-md ring-2 ring-white transition active:scale-95";
+  const dot = "grid size-8 shrink-0 place-items-center rounded-full bg-white text-sm";
 
   return (
     <div
       className="absolute left-1.5 z-20 flex flex-col items-start gap-1 overflow-y-auto p-0.5"
       style={{ top: "calc(var(--hud-top) + 6px)", maxHeight: "calc(100dvh - var(--hud-top) - var(--hud-bottom) - 20px)" }}
-      aria-label="Bắt đầu / kết thúc trận"
+      aria-label="Thao tác sân"
     >
-      {ready.map((c) => (
-        <button
-          key={c.id}
-          onClick={() => startMatch(c.id)}
-          aria-label={`Bắt đầu trận ở ${c.name}`}
-          className="flex h-10 max-w-[9.5rem] cursor-pointer items-center gap-1.5 rounded-full bg-emerald-500 py-1 pl-1 pr-3 text-sm font-extrabold text-white shadow-md ring-2 ring-white transition active:scale-95"
-        >
-          <span className="grid size-8 shrink-0 animate-pulse place-items-center rounded-full bg-white text-sm text-emerald-600">▶</span>
-          <span className="truncate">{c.name}</span>
-        </button>
-      ))}
-      {playing.map((c) => (
-        <button
-          key={c.id}
-          onClick={() => openDialog({ kind: "finish", courtId: c.id })}
-          aria-label={`Kết thúc trận ở ${c.name}`}
-          className="flex h-10 max-w-[9.5rem] cursor-pointer items-center gap-1.5 rounded-full bg-rose-500 py-1 pl-1 pr-3 text-sm font-extrabold text-white shadow-md ring-2 ring-white transition active:scale-95"
-        >
-          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white text-sm">🏁</span>
-          <span className="min-w-0 leading-none">
-            <span className="block truncate">{c.name}</span>
-            <span className="block text-[10px] font-bold text-rose-100">
-              <Elapsed since={c.startedAt ?? Date.now()} />
-            </span>
-          </span>
-        </button>
-      ))}
+      {courts.map((c) => {
+        const filled = c.slots.filter(Boolean).length;
+        const playing = c.status === "playing";
+        const ready = !playing && filled === 4;
+        const onRemove = () => {
+          if (filled > 0 && !window.confirm(`${c.name} đang có ${filled} người. Xóa sân và đưa họ về sảnh chờ?`)) return;
+          removeCourt(c.id);
+        };
+        return (
+          <div key={c.id} className="flex items-center gap-1">
+            {playing ? (
+              <button className={`${pill} bg-rose-500 text-white`} onClick={() => openDialog({ kind: "finish", courtId: c.id })} aria-label={`Kết thúc trận ở ${c.name}`}>
+                <span className={dot}>🏁</span>
+                <span className="min-w-0 leading-none">
+                  <span className="block truncate">{c.name}</span>
+                  <span className="block text-[10px] font-bold text-rose-100">
+                    <Elapsed since={c.startedAt ?? Date.now()} />
+                  </span>
+                </span>
+              </button>
+            ) : ready ? (
+              <button className={`${pill} bg-emerald-500 text-white`} onClick={() => startMatch(c.id)} aria-label={`Bắt đầu trận ở ${c.name}`}>
+                <span className={`${dot} animate-pulse text-emerald-600`}>▶</span>
+                <span className="truncate">{c.name}</span>
+              </button>
+            ) : (
+              <button
+                className={`${pill} bg-yellow-400 text-yellow-950`}
+                onClick={() => openDialog({ kind: "arrange", courtId: c.id })}
+                aria-label={`Xếp trận cho ${c.name}`}
+              >
+                <span className={dot}>🎲</span>
+                <span className="min-w-0 leading-none">
+                  <span className="block truncate">{c.name}</span>
+                  <span className="block text-[10px] font-bold text-yellow-800">{filled === 0 ? "trống" : `${filled}/4`}</span>
+                </span>
+              </button>
+            )}
+            {!playing && (
+              <button
+                onClick={onRemove}
+                aria-label={`Xóa ${c.name}`}
+                title="Xóa sân"
+                className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full bg-white/90 text-sm shadow ring-1 ring-slate-200 transition active:scale-95"
+              >
+                🗑️
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
