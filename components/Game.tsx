@@ -172,7 +172,16 @@ function TopBar({ barRef, onOpenStats, onFit }: { barRef: RefObject<HTMLElement 
  * Thanh trên — điện thoại: dải tối dính trên cùng, tên rõ + thông số to.
  * Đang kéo / chạm trên sân thì trượt lên ẩn đi, thả tay một chút là hiện lại. Mọi nút chức năng nằm ở thanh dưới.
  */
-function MobileTopBar({ barRef, hidden }: { barRef: RefObject<HTMLElement | null>; hidden: boolean }) {
+function MobileTopBar({
+  barRef,
+  hidden,
+  onHide,
+}: {
+  barRef: RefObject<HTMLElement | null>;
+  hidden: boolean;
+  /** Điện thoại xoay ngang: nút thu gọn toàn bộ menu. */
+  onHide?: () => void;
+}) {
   const courts = useGame((s) => s.courts);
   const waiting = useGame((s) => s.queue.length);
   const playing = courts.filter((c) => c.status === "playing").length;
@@ -213,6 +222,17 @@ function MobileTopBar({ barRef, hidden }: { barRef: RefObject<HTMLElement | null
             {pad(now.getHours())}:{pad(now.getMinutes())}
           </span>
         </span>
+        {onHide && (
+          <button
+            onClick={onHide}
+            aria-label="Ẩn menu"
+            title="Ẩn menu để xem sân rộng hơn"
+            className="flex cursor-pointer flex-col items-center justify-center rounded-lg bg-[#ffffff1a] px-2 leading-none text-[#ffffff] transition active:scale-95"
+          >
+            <span className="text-base font-extrabold">⌃</span>
+            <span className="mt-px text-[9px] font-bold uppercase tracking-wide text-[#94a3b8]">Ẩn</span>
+          </button>
+        )}
       </span>
     </header>
   );
@@ -236,6 +256,7 @@ function NavButton({
   active,
   badge,
   tone,
+  row,
   onClick,
 }: {
   icon: string;
@@ -243,22 +264,30 @@ function NavButton({
   active?: boolean;
   badge?: number;
   tone?: string;
+  /** Điện thoại xoay ngang: icon cạnh chữ, thấp hơn để chừa chỗ cho sân. */
+  row?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
       aria-current={active ? "page" : undefined}
-      className={`relative flex min-h-[60px] flex-1 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl px-0.5 transition active:scale-95 ${
+      className={`relative flex flex-1 cursor-pointer items-center justify-center rounded-2xl px-0.5 transition active:scale-95 ${
+        row ? "min-h-10 gap-1.5" : "min-h-[60px] flex-col gap-1"
+      } ${
         active ? "bg-orange-500 text-white shadow-md" : (tone ?? "text-slate-700")
       }`}
     >
-      <span className="text-[26px] leading-none" aria-hidden>
+      <span className={`${row ? "text-xl" : "text-[26px]"} leading-none`} aria-hidden>
         {icon}
       </span>
-      <span className="whitespace-nowrap text-[11px] font-extrabold leading-none">{label}</span>
+      <span className={`whitespace-nowrap font-extrabold leading-none ${row ? "text-xs" : "text-[11px]"}`}>{label}</span>
       {badge !== undefined && badge > 0 && (
-        <span className="absolute right-1 top-0.5 min-w-5 rounded-full bg-rose-500 px-1 text-center text-[11px] font-extrabold tabular-nums leading-5 text-white ring-2 ring-white">
+        <span
+          className={`min-w-5 rounded-full bg-rose-500 px-1 text-center text-[11px] font-extrabold tabular-nums leading-5 text-white ring-2 ring-white ${
+            row ? "" : "absolute right-1 top-0.5"
+          }`}
+        >
           {badge}
         </span>
       )}
@@ -272,11 +301,17 @@ function MobileNav({
   tab,
   onTab,
   onMore,
+  row,
+  hidden,
 }: {
   navRef: RefObject<HTMLElement | null>;
   tab: MobileTab;
   onTab: (tab: MobileTab) => void;
   onMore: () => void;
+  /** Điện thoại xoay ngang: thanh thấp, icon cạnh chữ. */
+  row: boolean;
+  /** Trượt xuống ẩn đi (điện thoại xoay ngang, đang thao tác trên sân). */
+  hidden: boolean;
 }) {
   const openDialog = useGame((s) => s.openDialog);
   const waiting = useGame((s) => s.queue.length);
@@ -284,15 +319,18 @@ function MobileNav({
   return (
     <nav
       ref={navRef}
-      className="panel absolute inset-x-2 bottom-2 z-30 flex items-stretch gap-1 p-1.5"
+      className={`panel absolute inset-x-2 bottom-2 z-30 mx-auto flex items-stretch gap-1 transition-transform duration-300 ease-out ${
+        row ? "max-w-2xl p-1" : "p-1.5"
+      } ${hidden ? "pointer-events-none translate-y-[130%]" : ""}`}
       style={{ marginBottom: "env(safe-area-inset-bottom)" }}
       aria-label="Điều hướng"
+      aria-hidden={hidden}
     >
-      <NavButton icon="🏟️" label="Sân" active={tab === "court"} onClick={() => onTab("court")} />
-      <NavButton icon="🪑" label="Sảnh chờ" active={tab === "lobby"} badge={waiting} onClick={() => onTab("lobby")} />
-      <NavButton icon="✅" label="Điểm danh" badge={notArrived} onClick={() => openDialog({ kind: "attendance" })} />
-      <NavButton icon="🎲" label="Xếp trận" onClick={() => openDialog({ kind: "arrange", courtId: null })} />
-      <NavButton icon="☰" label="Thêm" onClick={onMore} />
+      <NavButton row={row} icon="🏟️" label="Sân" active={tab === "court"} onClick={() => onTab("court")} />
+      <NavButton row={row} icon="🪑" label="Sảnh chờ" active={tab === "lobby"} badge={waiting} onClick={() => onTab("lobby")} />
+      <NavButton row={row} icon="✅" label="Điểm danh" badge={notArrived} onClick={() => openDialog({ kind: "attendance" })} />
+      <NavButton row={row} icon="🎲" label="Xếp trận" onClick={() => openDialog({ kind: "arrange", courtId: null })} />
+      <NavButton row={row} icon="☰" label="Thêm" onClick={onMore} />
     </nav>
   );
 }
@@ -436,7 +474,7 @@ function Elapsed({ since }: { since: number }) {
  * Điện thoại: cột thao tác gọn bên trái, mỗi sân một dòng (nhãn trên sân chỉ còn tên sân):
  * ▶ Bắt đầu (đủ người) · 🏁 Kết thúc (đang đánh, kèm thời gian) · 🎲 Xếp trận (còn chỗ) + 🗑️ xóa sân.
  */
-function MobileCourtDock() {
+function MobileCourtDock({ hidden }: { hidden: boolean }) {
   const courts = useGame((s) => s.courts);
   const startMatch = useGame((s) => s.startMatch);
   const openDialog = useGame((s) => s.openDialog);
@@ -449,9 +487,12 @@ function MobileCourtDock() {
 
   return (
     <div
-      className="absolute left-1.5 z-20 flex flex-col items-start gap-1 overflow-y-auto p-0.5"
+      className={`absolute left-1.5 z-20 flex flex-col items-start gap-1 overflow-y-auto p-0.5 transition-transform duration-300 ease-out ${
+        hidden ? "pointer-events-none -translate-x-[120%]" : ""
+      }`}
       style={{ top: "calc(var(--hud-top) + 6px)", maxHeight: "calc(100dvh - var(--hud-top) - var(--hud-bottom) - 20px)" }}
       aria-label="Thao tác sân"
+      aria-hidden={hidden}
     >
       {courts.map((c) => {
         const filled = c.slots.filter(Boolean).length;
@@ -625,14 +666,20 @@ function Toasts() {
 }
 
 /** Nút nhanh nổi góc phải tab Sân (điện thoại). */
-function CourtQuickActions({ onFit }: { onFit: () => void }) {
+function CourtQuickActions({ onFit, hidden }: { onFit: () => void; hidden: boolean }) {
   const addCourt = useGame((s) => s.addCourt);
   const returnIdleToQueue = useGame((s) => s.returnIdleToQueue);
   const hasSelection = useGame((s) => s.selectedIds.length > 0);
   const idleOnCourt = useIdleOnCourt();
   if (hasSelection) return null;
   return (
-    <div className="absolute right-2 z-20 flex flex-col items-end gap-1.5" style={{ bottom: "calc(var(--hud-bottom) + 8px)" }}>
+    <div
+      className={`absolute right-2 z-20 flex flex-col items-end gap-1.5 transition-transform duration-300 ease-out ${
+        hidden ? "pointer-events-none translate-x-[130%]" : ""
+      }`}
+      style={{ bottom: "calc(var(--hud-bottom) + 8px)" }}
+      aria-hidden={hidden}
+    >
       {idleOnCourt > 0 && (
         <button className="btn btn-ghost !rounded-2xl shadow-lg" onClick={returnIdleToQueue} title="Đưa người ở sân chưa đánh về sảnh chờ">
           ↩️ Về sảnh chờ
@@ -662,11 +709,6 @@ export default function Game() {
   const [barHidden, setBarHidden] = useState(false);
   const showTimer = useRef<number | undefined>(undefined);
   const sceneTouching = useRef(false);
-  const onScenePointerDown = () => {
-    sceneTouching.current = true;
-    window.clearTimeout(showTimer.current);
-    setBarHidden(true);
-  };
   useEffect(() => {
     const onUp = () => {
       if (!sceneTouching.current) return;
@@ -693,9 +735,19 @@ export default function Game() {
   }, [theme]);
 
   // điện thoại: tab Sân / Sảnh chờ tách biệt; màn hình thấp (điện thoại ngang) cũng coi là "nhỏ"
-  const mobile = viewport.w < MOBILE_BREAKPOINT;
-  const small = mobile || viewport.h < 500;
+  // điện thoại xoay ngang (màn hình thấp) cũng dùng giao diện điện thoại: đủ menu như màn dọc
+  const mobile = viewport.w < MOBILE_BREAKPOINT || viewport.h < 500;
+  const small = mobile;
   const portrait = viewport.w < viewport.h;
+  const landscapeMobile = mobile && !portrait;
+  // điện thoại xoay ngang: chiều cao quý — chạm vào sân là ẩn hết menu, bấm nút ☰ để hiện lại
+  const [hudHidden, setHudHidden] = useState(false);
+  const onScenePointerDown = () => {
+    sceneTouching.current = true;
+    window.clearTimeout(showTimer.current);
+    if (landscapeMobile) setHudHidden(true);
+    else setBarHidden(true);
+  };
   const [panelOpen, setPanelOpen] = useState(() => window.innerWidth >= MOBILE_BREAKPOINT && window.innerHeight >= 500);
 
   useEffect(() => setPortrait(portrait), [portrait, setPortrait]);
@@ -714,6 +766,7 @@ export default function Game() {
 
   const fit = () => setFitKey((k) => k + 1);
   const lobby = mobile && tab === "lobby";
+  const hideHud = landscapeMobile && hudHidden && !lobby;
 
   /** Phần màn hình bị HUD che — camera căn cảnh vào vùng còn lại. */
   const insets: HudInsets = useMemo(
@@ -727,10 +780,11 @@ export default function Game() {
   );
 
   const vars = {
-    "--hud-top": `${barBottom}px`,
+    // menu đang ẩn: nút, thông báo… dời sát mép màn hình (camera thì giữ nguyên, không nhảy)
+    "--hud-top": hideHud ? "env(safe-area-inset-top, 0px)" : `${barBottom}px`,
     "--toast-gap": mobile ? "8px" : "52px",
     "--hud-left": `${insets.left}px`,
-    "--hud-bottom": `${insets.bottom}px`,
+    "--hud-bottom": hideHud ? "8px" : `${insets.bottom}px`,
   } as CSSProperties;
 
   return (
@@ -746,7 +800,11 @@ export default function Game() {
         <div ref={overlay} className={`pointer-events-none absolute inset-0 overflow-hidden ${lobby ? "invisible" : ""}`} />
       </div>
 
-      {mobile ? <MobileTopBar barRef={bar} hidden={barHidden && !lobby} /> : <TopBar barRef={bar} onOpenStats={() => setStatsOpen(true)} onFit={fit} />}
+      {mobile ? <MobileTopBar
+          barRef={bar}
+          hidden={landscapeMobile ? hideHud : barHidden && !lobby}
+          onHide={landscapeMobile ? () => setHudHidden(true) : undefined}
+        /> : <TopBar barRef={bar} onOpenStats={() => setStatsOpen(true)} onFit={fit} />}
       {!mobile && <Clock />}
 
       {mobile ? (
@@ -755,8 +813,8 @@ export default function Game() {
         <MemberPanel variant="side" open={panelOpen} onOpenChange={setPanelOpen} />
       )}
 
-      {mobile ? !lobby && <MobileCourtDock /> : <ReadyDock side="right" />}
-      {mobile && !lobby && <CourtQuickActions onFit={fit} />}
+      {mobile ? !lobby && <MobileCourtDock hidden={hideHud} /> : <ReadyDock side="right" />}
+      {mobile && !lobby && <CourtQuickActions onFit={fit} hidden={hideHud} />}
       <SelectionBar />
 
       {mobile && (
@@ -766,10 +824,23 @@ export default function Game() {
           onTab={(t) => {
             // bấm lại tab Sân khi đang ở tab Sân = đưa camera về toàn cảnh
             if (t === "court" && tab === "court") fit();
+            setHudHidden(false);
             setTab(t);
           }}
           onMore={() => setMoreOpen(true)}
+          row={landscapeMobile}
+          hidden={hideHud}
         />
+      )}
+      {hideHud && (
+        <button
+          onClick={() => setHudHidden(false)}
+          className="animate-pop absolute right-2 z-40 flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full border-2 border-white bg-[#0b1220]/90 px-3 text-sm font-extrabold text-white shadow-lg active:scale-95"
+          style={{ top: "calc(env(safe-area-inset-top, 0px) + 8px)" }}
+          aria-label="Hiện menu"
+        >
+          ☰ Menu
+        </button>
       )}
 
       <p className="pointer-events-none absolute inset-x-0 bottom-2.5 z-10 hidden text-center text-[11px] font-semibold text-slate-700 lg:block">
