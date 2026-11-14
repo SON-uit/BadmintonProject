@@ -613,8 +613,9 @@ export const useGame = create<GameState>()(
             member,
             played: played.get(member.id) ?? 0,
             waitedMs: now - (s.queuedAt[member.id] ?? now),
-          }))
-          .sort(byPriority);
+          }));
+        // Ngẫu Nhiên: giữ nguyên thứ tự đã xáo (bốc thăm) · còn lại: sắp theo ưu tiên ít trận, chờ lâu
+        if (vibe !== "random") pool.sort(byPriority);
 
         const result = pickForMatch(pool, existing, type, vibe);
         if (!result.ok) {

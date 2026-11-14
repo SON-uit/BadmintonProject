@@ -66,7 +66,7 @@ export const MATCH_LABEL: Record<MatchType, string> = {
 export const MATCH_ICON: Record<DoublesType, string> = { men: "♂♂", women: "♀♀", mixed: "♂♀" };
 
 /** Tính chất trận đấu — quyết định độ chênh trình được phép khi xếp. */
-export type Vibe = "intense" | "chill" | "easy";
+export type Vibe = "intense" | "chill" | "easy" | "random";
 
 export interface VibeInfo {
   value: Vibe;
@@ -98,6 +98,13 @@ export const VIBES: VibeInfo[] = [
     name: "Dưỡng Sinh",
     hint: "Newbie → Yếu, chủ yếu vận động / giao lưu",
     rule: "trình Newbie → Yếu",
+  },
+  {
+    value: "random",
+    emoji: "🎲",
+    name: "Ngẫu Nhiên",
+    hint: "Bốc thăm ngẫu nhiên người trong sảnh chờ, không xét trình độ",
+    rule: "ngẫu nhiên",
   },
 ];
 

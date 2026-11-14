@@ -71,6 +71,8 @@ const LEVEL_WINDOWS: Record<Vibe, [number, number][]> = {
   ],
   // Dưỡng Sinh: Newbie → Yếu
   easy: [[1, 2]],
+  // Ngẫu Nhiên: mọi trình độ
+  random: [[1, 7]],
 };
 
 export type PickResult = { ok: true; picked: Member[] } | { ok: false; reason: string };
