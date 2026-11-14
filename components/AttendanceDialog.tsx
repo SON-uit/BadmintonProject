@@ -19,7 +19,7 @@ const fold = (s: string) =>
 function Avatar({ member }: { member: Member }) {
   const info = levelInfo(member.level);
   return (
-    <span className="relative grid size-10 shrink-0 place-items-center rounded-full text-xl" style={{ background: info.color }} title={`${info.nick} (${info.code})`}>
+    <span className="relative grid size-9 shrink-0 place-items-center rounded-full text-lg" style={{ background: info.color }} title={`${info.nick} (${info.code})`}>
       {info.emoji}
       <span className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full ring-2 ring-white" style={{ background: GENDER_COLOR[member.gender] }} />
     </span>
@@ -53,26 +53,27 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
   const shownAbsent = absent.filter(match);
   const shownPresent = present.filter(match);
   const shownLeft = left.filter(match);
-  const dateText = new Date().toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit" });
+  const today = new Date();
+  const dateText = `${["CN", "T2", "T3", "T4", "T5", "T6", "T7"][today.getDay()]} ${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}`;
 
   return (
     <Modal
       title="✅ Điểm danh"
-      subtitle={`${dateText} · ${present.length} có mặt · ${absent.length} chưa đến${left.length ? ` · ${left.length} đã về` : ""}`}
+      subtitle={`${dateText} · ${present.length} có mặt · ${absent.length} chưa đến${left.length ? ` · ${left.length} về` : ""}`}
       tone="from-emerald-500 to-teal-500"
       size="lg"
       onClose={onClose}
       footer={
         <>
           <button
-            className="btn btn-ghost mr-auto"
+            className="btn btn-ghost mr-auto whitespace-nowrap"
             title="Xóa giờ vào / ra của mọi người để điểm danh buổi mới"
             onClick={() => window.confirm("Bắt đầu buổi mới? Giờ vào / ra của mọi người sẽ bị xóa, ai cũng về trạng thái chưa đến.") && resetAttendance()}
           >
             🔄 Buổi mới
           </button>
-          <button className="btn btn-sky" onClick={() => openDialog({ kind: "roster", editId: null })}>
-            👤 Thêm thành viên
+          <button className="btn btn-sky whitespace-nowrap" onClick={() => openDialog({ kind: "roster", editId: null })}>
+            👤 Thêm người
           </button>
           <button className="btn btn-primary" onClick={onClose}>
             Xong
@@ -93,7 +94,7 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="🔍 Tìm tên (gõ không dấu cũng được)…"
+            placeholder="🔍 Tìm tên…"
             aria-label="Tìm thành viên"
             className="w-full select-text rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-base font-semibold text-slate-800 outline-none focus:border-emerald-400"
           />
@@ -118,10 +119,10 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
                       <Avatar member={m} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-base font-extrabold text-slate-900">{m.name}</span>
-                        <span className="block truncate text-xs font-semibold text-slate-500">{levelInfo(m.level).nick}</span>
+                        <span className="block truncate text-xs font-semibold text-slate-500">{levelInfo(m.level).code}</span>
                       </span>
-                      <span className="shrink-0 rounded-xl bg-emerald-500 px-3 py-2 text-sm font-extrabold text-white shadow-[0_3px_0_0_rgb(0_0_0/0.18)]">
-                        ✅ Có mặt
+                      <span className="shrink-0 whitespace-nowrap rounded-xl bg-emerald-500 px-3 py-2 text-sm font-extrabold text-white shadow-[0_3px_0_0_rgb(0_0_0/0.18)]">
+                        ✅ Đến
                       </span>
                     </button>
                   </li>
@@ -144,12 +145,12 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
                       <span className="min-w-0 flex-1 leading-tight">
                         <span className="block truncate text-sm font-extrabold text-slate-900">{m.name}</span>
                         <span className="block truncate text-xs font-semibold text-emerald-700">
-                          Vào lúc {fmtClock(m.checkInAt!)}
-                          {playing && <span className="text-orange-600"> · đang đánh</span>}
+                          🕒 {fmtClock(m.checkInAt!)}
+                          {playing && <span className="text-orange-600"> · 🏸 đánh</span>}
                         </span>
                       </span>
                       <button
-                        className="btn btn-ghost !min-h-10 !px-2.5 !text-xs"
+                        className="btn btn-ghost shrink-0 whitespace-nowrap !min-h-10 !px-2 !text-xs"
                         disabled={playing}
                         title="Bấm nhầm? Hủy điểm danh (xóa giờ vào)"
                         onClick={() => setMemberTimes(m.id, null, null)}
@@ -157,7 +158,7 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
                         ↶ Hủy
                       </button>
                       <button
-                        className="btn btn-ghost !min-h-10 !px-2.5 !text-xs"
+                        className="btn btn-ghost shrink-0 whitespace-nowrap !min-h-10 !px-2 !text-xs"
                         disabled={playing}
                         title="Xác nhận ra về — chốt giờ ra để tính tiền"
                         onClick={() => checkOut(m.id)}
@@ -184,8 +185,8 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
                         {fmtClock(m.checkInAt!)} – {fmtClock(m.checkOutAt!)}
                       </span>
                     </span>
-                    <button className="btn btn-green !min-h-10 !px-2.5 !text-xs" title="Quay lại sân — vào sảnh chờ" onClick={() => checkIn(m.id)}>
-                      ↩️ Quay lại
+                    <button className="btn btn-green shrink-0 whitespace-nowrap !min-h-10 !px-2 !text-xs" title="Quay lại sân — vào sảnh chờ" onClick={() => checkIn(m.id)}>
+                      ↩️ Lại
                     </button>
                   </li>
                 ))}

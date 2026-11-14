@@ -59,7 +59,7 @@ select {
   }
   /* nút "nổi" có đổ bóng đáy, nhấn thì lún xuống */
   .btn {
-    @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-2xl px-3.5 py-2 text-sm font-extrabold shadow-[0_3px_0_0_rgb(0_0_0/0.18)] transition active:translate-y-[2px] active:shadow-[0_1px_0_0_rgb(0_0_0/0.18)] disabled:cursor-not-allowed disabled:opacity-40;
+    @apply inline-flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-2xl px-3.5 py-2 text-sm font-extrabold shadow-[0_3px_0_0_rgb(0_0_0/0.18)] transition active:translate-y-[2px] active:shadow-[0_1px_0_0_rgb(0_0_0/0.18)] disabled:cursor-not-allowed disabled:opacity-40;
   }
   /* điện thoại: nút cao tối thiểu 44px, chữ / icon to hơn cho dễ chạm */
   .btn {
