@@ -7,6 +7,10 @@ import { useGame } from "@/lib/store";
 import { GENDER_COLOR, isPresent, levelInfo, MAX_MEMBERS, type Court, type Member } from "@/lib/types";
 import { useQueueView } from "./useMoods";
 
+/** Nút nhỏ trong hàng (ra về / sửa) — điện thoại: chỉ icon, ô vuông đủ to để chạm. */
+const ROW_BUTTON =
+  "shrink-0 cursor-pointer rounded-lg px-1 py-0.5 text-xs opacity-70 transition hover:bg-white hover:opacity-100 compact:grid compact:size-9 compact:place-items-center compact:bg-white compact:p-0 compact:text-base compact:opacity-100";
+
 function MemberRow({
   member,
   index,
@@ -76,7 +80,10 @@ function MemberRow({
       )}
       <span className="size-2.5 shrink-0 rounded-full" style={{ background: GENDER_COLOR[member.gender] }} />
       <span className="flex min-w-0 flex-1 items-center gap-1">
-        <span className="truncate font-bold text-slate-900">{member.name}</span>
+        {/* điện thoại: ưu tiên hiện đủ tên — xuống dòng thay vì cắt "…" */}
+        <span className="truncate font-bold text-slate-900 compact:whitespace-normal compact:leading-snug compact:[overflow-wrap:anywhere]">
+          {member.name}
+        </span>
         {angry && (
           <span
             className={`anger-emote-inline shrink-0 leading-none ${angry.level === 2 ? "anger-emote-2" : ""}`}
@@ -90,7 +97,7 @@ function MemberRow({
       </span>
       {mood && (
         <span
-          className={`shrink-0 rounded-full px-1.5 py-px text-[10px] font-extrabold tabular-nums compact:text-xs ${
+          className={`shrink-0 rounded-full px-1.5 py-px text-[10px] font-extrabold tabular-nums compact:hidden ${
             angry ? "bg-rose-100 text-rose-600" : "bg-white text-slate-500"
           }`}
           title="Thời gian đã chờ ở sảnh chờ"
@@ -99,7 +106,7 @@ function MemberRow({
           ⏱ {fmtWait(mood.waitedMs)}
         </span>
       )}
-      <span className="w-10 shrink-0 text-right text-[11px] font-semibold tabular-nums text-slate-500 compact:w-12 compact:text-xs" title="Số trận hôm nay">
+      <span className="w-10 shrink-0 text-right text-[11px] font-semibold tabular-nums text-slate-500 compact:hidden" title="Số trận hôm nay">
         {played} trận
       </span>
       {mood && (
@@ -107,21 +114,27 @@ function MemberRow({
           onClick={() => checkOut(member.id)}
           aria-label={`Xác nhận ${member.name} ra về`}
           title="Xác nhận ra về — chốt giờ để tính tiền"
-          className="shrink-0 cursor-pointer rounded-lg px-1 py-0.5 text-xs opacity-70 transition hover:bg-white hover:opacity-100 compact:min-h-9 compact:bg-white compact:px-2 compact:text-xs compact:font-bold compact:opacity-100"
+          className={ROW_BUTTON}
         >
-          🏠<span className="hidden compact:inline"> Về</span>
+          🏠
         </button>
       )}
       <button
         onClick={() => openDialog({ kind: "roster", editId: member.id })}
         aria-label={`Sửa ${member.name}`}
         title="Sửa tên / giới tính / trình độ"
-        className="shrink-0 cursor-pointer rounded-lg px-1 py-0.5 text-xs opacity-70 transition hover:bg-white hover:opacity-100 compact:min-h-9 compact:bg-white compact:px-2 compact:text-xs compact:font-bold compact:opacity-100"
+        className={ROW_BUTTON}
       >
-        ✏️<span className="hidden compact:inline"> Sửa</span>
+        ✏️
       </button>
-      {/* dòng 2: biệt danh gà (trình) + lý do bực nếu có */}
-      <span className="basis-full truncate pl-[2.4rem] text-[11px] font-semibold leading-tight text-slate-500 compact:pl-[3.1rem] compact:text-xs">
+      {/* dòng 2: (điện thoại: thời gian chờ + số trận) · biệt danh gà (trình) + lý do bực nếu có */}
+      <span className="basis-full truncate pl-[2.4rem] text-[11px] font-semibold leading-tight text-slate-500 compact:whitespace-normal compact:pl-[3.1rem] compact:text-xs compact:leading-snug">
+        {mood && (
+          <span className={`mr-1.5 hidden rounded-full px-1.5 font-extrabold tabular-nums compact:inline ${angry ? "bg-rose-100 text-rose-600" : "bg-white"}`}>
+            ⏱ {fmtWait(mood.waitedMs)}
+          </span>
+        )}
+        <span className="hidden tabular-nums compact:inline">{played} trận · </span>
         {level.emoji} {level.nick} <span className="text-slate-400">({level.code})</span>
         {angry && <span className={angry.level === 2 ? "text-rose-600" : "text-orange-600"}> · {angry.reasons.join(" · ")}</span>}
       </span>
