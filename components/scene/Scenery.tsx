@@ -13,7 +13,8 @@ import { TIER_DEPTH, TIERS } from "./Crowd";
 export const STAND_DEPTH = TIERS * TIER_DEPTH + 0.6;
 /** Khoảng lùi sau khán đài phía sau dành cho bảng điện tử. */
 export const SCOREBOARD_ROOM = 3.5;
-const TRACK_WIDTH = 6;
+/** Khoảng cỏ quanh khu thi đấu (trước là đường chạy) — chỗ dựng cột đèn, không trồng cây. */
+const APRON = 2.5;
 const PALETTE = ["#ff4d5a", "#ffc800", "#2f86ff", "#06c98b", "#ff2e93", "#8b46ff", "#ff8a1f", "#00b4f0"];
 
 /** Khu "sân vận động": hình chữ nhật bo góc ôm sát sàn đấu + khán đài; đường chạy nằm ngay bên ngoài. */
@@ -30,20 +31,6 @@ function venueOf(bounds: ArenaBounds, sides: boolean): Venue {
   const zFront = bounds.maxZ + 3;
   const hd = (zFront - zBack) / 2;
   return { hw, hd, cz: (zFront + zBack) / 2, r: Math.min(8, hw - 1, hd - 1) };
-}
-
-/** Vẽ hình chữ nhật bo góc (tâm ở gốc) vào Shape / Path. */
-function roundedRect<T extends THREE.Path>(path: T, hw: number, hd: number, r: number): T {
-  path.moveTo(-hw + r, -hd);
-  path.lineTo(hw - r, -hd);
-  path.absarc(hw - r, -hd + r, r, -Math.PI / 2, 0, false);
-  path.lineTo(hw, hd - r);
-  path.absarc(hw - r, hd - r, r, 0, Math.PI / 2, false);
-  path.lineTo(-hw + r, hd);
-  path.absarc(-hw + r, hd - r, r, Math.PI / 2, Math.PI, false);
-  path.lineTo(-hw, -hd + r);
-  path.absarc(-hw + r, -hd + r, r, Math.PI, Math.PI * 1.5, false);
-  return path;
 }
 
 /* ---------- cỏ sọc như sân bóng ---------- */
@@ -72,110 +59,6 @@ function Grass() {
   );
 }
 
-/* ---------- đường chạy điền kinh quanh sân ---------- */
-function Track({ venue }: { venue: Venue }) {
-  const { hw, hd, r, cz } = venue;
-  const { surface, lanes } = useMemo(() => {
-    const ring = (inner: number, outer: number) => {
-      const shape = roundedRect(new THREE.Shape(), hw + outer, hd + outer, r + outer);
-      shape.holes.push(roundedRect(new THREE.Path(), hw + inner, hd + inner, r + inner));
-      return new THREE.ShapeGeometry(shape, 20);
-    };
-    return {
-      surface: ring(0, TRACK_WIDTH),
-      lanes: [0.12, 1.55, 3, 4.45, 5.88].map((o) => ring(o - 0.07, o + 0.07)),
-    };
-  }, [hw, hd, r]);
-  useEffect(
-    () => () => {
-      surface.dispose();
-      lanes.forEach((g) => g.dispose());
-    },
-    [surface, lanes],
-  );
-
-  return (
-    <group position={[0, -0.27, cz]} rotation-x={-Math.PI / 2}>
-      <mesh geometry={surface} receiveShadow>
-        <meshToonMaterial color="#ee5d43" />
-      </mesh>
-      {lanes.map((geometry, i) => (
-        <mesh key={i} geometry={geometry} position-z={0.012}>
-          <meshBasicMaterial color="#ffffff" />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-/* ---------- người chạy bộ trên đường chạy ---------- */
-const RUNNERS = 9;
-
-function Runners({ venue }: { venue: Venue }) {
-  const { hw, hd, r, cz } = venue;
-  const body = useRef<THREE.InstancedMesh>(null);
-  const head = useRef<THREE.InstancedMesh>(null);
-  const { path, length, runners } = useMemo(() => {
-    const mid = TRACK_WIDTH / 2;
-    const path = roundedRect(new THREE.Path(), hw + mid, hd + mid, r + mid);
-    const rnd = seeded(4242);
-    const runners = Array.from({ length: RUNNERS }, (_, i) => ({
-      start: rnd(),
-      speed: 3.2 + rnd() * 2.4, // m/s
-      lane: (i % 4) * 1.45 - 2.2,
-      phase: rnd() * 6,
-    }));
-    return { path, length: path.getLength(), runners };
-  }, [hw, hd, r]);
-  const dummy = useMemo(() => new THREE.Object3D(), []);
-
-  useLayoutEffect(() => {
-    const color = new THREE.Color();
-    runners.forEach((_, i) => {
-      body.current?.setColorAt(i, color.set(PALETTE[i % PALETTE.length]));
-      head.current?.setColorAt(i, color.set(i % 3 === 0 ? "#e2a56b" : "#ffd3ab"));
-    });
-    if (body.current?.instanceColor) body.current.instanceColor.needsUpdate = true;
-    if (head.current?.instanceColor) head.current.instanceColor.needsUpdate = true;
-  }, [runners]);
-
-  useFrame((state) => {
-    if (!body.current || !head.current) return;
-    const t = state.clock.elapsedTime;
-    runners.forEach((runner, i) => {
-      const u = (runner.start + (t * runner.speed) / length) % 1;
-      const p = path.getPointAt(u);
-      const tan = path.getTangentAt(u);
-      // pháp tuyến hướng ra ngoài để lệch theo làn chạy
-      const x = p.x + tan.y * runner.lane;
-      const z = cz - (p.y - tan.x * runner.lane);
-      const bob = Math.abs(Math.sin(t * 9 + runner.phase)) * 0.16;
-      dummy.rotation.set(0.18, Math.atan2(tan.x, -tan.y), 0);
-      dummy.position.set(x, 0.32 + bob, z);
-      dummy.updateMatrix();
-      body.current!.setMatrixAt(i, dummy.matrix);
-      dummy.position.y += 0.62;
-      dummy.updateMatrix();
-      head.current!.setMatrixAt(i, dummy.matrix);
-    });
-    body.current.instanceMatrix.needsUpdate = true;
-    head.current.instanceMatrix.needsUpdate = true;
-  });
-
-  return (
-    <>
-      <instancedMesh ref={body} args={[undefined, undefined, RUNNERS]} frustumCulled={false} castShadow>
-        <capsuleGeometry args={[0.24, 0.5, 4, 10]} />
-        <meshToonMaterial />
-      </instancedMesh>
-      <instancedMesh ref={head} args={[undefined, undefined, RUNNERS]} frustumCulled={false}>
-        <sphereGeometry args={[0.21, 12, 10]} />
-        <meshToonMaterial />
-      </instancedMesh>
-    </>
-  );
-}
-
 /* ---------- cây xanh rải quanh ---------- */
 const TREE_CANDIDATES = (() => {
   const rnd = seeded(77);
@@ -194,7 +77,7 @@ function Trees({ venue }: { venue: Venue }) {
   const top = useRef<THREE.InstancedMesh>(null);
   // vị trí ứng viên cố định; chỉ bỏ những cây rơi vào sân / đường chạy — đổi số sân thì cây không "nhảy" chỗ
   const trees = useMemo(() => {
-    const pad = TRACK_WIDTH + 2.5;
+    const pad = APRON + 1.5;
     return TREE_CANDIDATES.filter((t) => {
       const inVenue = Math.abs(t.x) < venue.hw + pad && Math.abs(t.z - venue.cz) < venue.hd + pad;
       // chừa trống phía trước cho camera nhìn vào
@@ -530,9 +413,9 @@ export default function Scenery({ bounds, sides }: { bounds: ArenaBounds; sides:
   const boardWidth = Math.max(8, Math.min(16, halfW * 2 - 2));
   const boardZ = minZ - STAND_DEPTH - 1.4;
 
-  const towerX = venue.hw + TRACK_WIDTH + 1.6;
-  const towerBack = venue.cz - venue.hd - TRACK_WIDTH - 1.6;
-  const towerFront = venue.cz + venue.hd + TRACK_WIDTH + 1.6;
+  const towerX = venue.hw + APRON;
+  const towerBack = venue.cz - venue.hd - APRON;
+  const towerFront = venue.cz + venue.hd + APRON;
 
   // cờ: dọc phía sau khán đài hai bên (màn hình ngang), và hai bên bảng điện tử
   const flags = useMemo(() => {
@@ -550,8 +433,6 @@ export default function Scenery({ bounds, sides }: { bounds: ArenaBounds; sides:
   return (
     <group>
       <Grass />
-      <Track venue={venue} />
-      <Runners venue={venue} />
       <Trees venue={venue} />
 
       <Floodlight x={-towerX} z={towerBack} lookZ={venue.cz} />

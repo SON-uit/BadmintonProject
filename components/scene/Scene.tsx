@@ -11,7 +11,7 @@ import type { Member } from "@/lib/types";
 import Court3D from "./Court3D";
 import Crowd from "./Crowd";
 import DragController from "./DragController";
-import Scenery, { SCOREBOARD_ROOM, STAND_DEPTH } from "./Scenery";
+import Scenery from "./Scenery";
 import Player3D, { type PlayerMode } from "./Player3D";
 
 interface Placement {
@@ -22,8 +22,11 @@ interface Placement {
   mode: PlayerMode;
 }
 
-/** Góc nhìn mặc định của camera so với mặt sàn. */
+/** Góc nhìn mặc định của camera so với mặt sàn (điện thoại nhìn dốc hơn: sân to, ít bị che, dễ chạm). */
 const ELEVATION = THREE.MathUtils.degToRad(52);
+const ELEVATION_COMPACT = THREE.MathUtils.degToRad(62);
+/** Lề quanh khu sân khi căn camera (mét) — khán đài, cảnh xung quanh nằm ngoài khung để sân to nhất có thể. */
+const FIT_MARGIN = 0.8;
 /** Phần màn hình bị HUD che (px): bảng thành viên bên trái, thanh trên, ngăn kéo / gợi ý bên dưới. */
 export interface HudInsets {
   left: number;
@@ -39,12 +42,12 @@ function CameraRig({
   bounds,
   fitKey,
   insets,
-  sides,
+  compact,
 }: {
   bounds: ArenaBounds;
   fitKey: number;
   insets: HudInsets;
-  sides: boolean;
+  compact: boolean;
 }) {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
   const size = useThree((s) => s.size);
@@ -69,13 +72,14 @@ function CameraRig({
     const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
     const tanV = tanHalf * (usableH / size.height);
     const tanH = tanHalf * (usableW / size.height);
-    // khung cần vừa: sàn đấu + khán đài hai bên và phía sau
-    const fitHalfW = sides ? halfW + 1.5 + STAND_DEPTH : halfW + 1;
-    const zBack = minZ - STAND_DEPTH - SCOREBOARD_ROOM;
-    const zFront = maxZ + 0.5;
+    // khung cần vừa: chỉ sàn đấu (các sân + sảnh chờ) — sân hiện to nhất có thể
+    const fitHalfW = halfW + FIT_MARGIN;
+    const zBack = minZ + 2 - FIT_MARGIN; // sàn có chừa 4.5m phía sau cho nhãn sân, không cần thấy hết
+    const zFront = maxZ + FIT_MARGIN;
     const fitHalfD = (zFront - zBack) / 2;
-    const sin = Math.sin(ELEVATION);
-    const cos = Math.cos(ELEVATION);
+    const elevation = compact ? ELEVATION_COMPACT : ELEVATION;
+    const sin = Math.sin(elevation);
+    const cos = Math.cos(elevation);
     const distance = Math.max(fitHalfW / tanH + fitHalfD * cos * 0.6, (fitHalfD * sin) / tanV + fitHalfD * cos) * 1.02;
     const target = new THREE.Vector3(0, 0, (zBack + zFront) / 2);
     const position = new THREE.Vector3(0, distance * sin, target.z + distance * cos);
@@ -90,7 +94,7 @@ function CameraRig({
     } else {
       goal.current = { position, target };
     }
-  }, [camera, controls, size.width, size.height, halfW, minZ, maxZ, fitKey, left, top, bottom, sides]);
+  }, [camera, controls, size.width, size.height, halfW, minZ, maxZ, fitKey, left, top, bottom, compact]);
 
   // người dùng chạm vào camera thì ngừng tự căn
   useEffect(() => {
@@ -358,7 +362,7 @@ export default function Scene({ overlay, fitKey, insets, compact }: SceneProps) 
             : { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }
         }
       />
-      <CameraRig bounds={bounds} fitKey={fitKey} insets={insets} sides={!portrait} />
+      <CameraRig bounds={bounds} fitKey={fitKey} insets={insets} compact={compact} />
       <ZoomWatcher overlay={overlay} />
     </Canvas>
   );
