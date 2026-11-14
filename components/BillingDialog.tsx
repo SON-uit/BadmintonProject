@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { billLineText, computeBill, fmtHour, fmtK, fmtVnd, genderWeight, type Bill, type BillSettings } from "@/lib/billing";
+import { billLineText, computeBill, fmtHour, fmtK, fmtVnd, formatExtras, genderWeight, parseVnd, type Bill, type BillSettings } from "@/lib/billing";
 import { useGame } from "@/lib/store";
 import { GENDER_COLOR } from "@/lib/types";
 import { Modal, SectionTitle } from "./Modal";
@@ -21,25 +21,29 @@ function fromHHMM(value: string, base: number): number | null {
   return d.getTime();
 }
 
-/** Ô nhập tiền theo đơn vị nghìn đồng. */
+/** Ô nhập tiền VNĐ: tự thêm dấu chấm phân cách hàng nghìn khi gõ (600000 → 600.000). */
 function MoneyInput({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
     <label className="block">
       <span className="text-xs font-bold text-slate-600">{label}</span>
       <span className="mt-0.5 flex items-center rounded-2xl border-2 border-slate-200 bg-white pr-3 focus-within:border-orange-400">
         <input
-          type="number"
-          inputMode="decimal"
-          min={0}
-          step={1}
-          value={value ? value / 1000 : ""}
+          type="text"
+          inputMode="numeric"
+          value={value ? fmtVnd(value) : ""}
           placeholder="0"
-          onChange={(e) => onChange(Math.max(0, Math.round(Number(e.target.value || 0) * 1000)))}
+          onChange={(e) => onChange(Math.min(99_999_999, parseVnd(e.target.value)))}
           aria-label={label}
           className="w-full min-w-0 select-text bg-transparent px-3 py-1.5 text-base font-extrabold tabular-nums text-slate-900 outline-none"
         />
-        <span className="text-sm font-bold text-slate-400">k</span>
+        <span className="text-sm font-bold text-slate-400">đ</span>
       </span>
+      {/* gõ tắt: 600 → 600.000 */}
+      {value > 0 && value < 1000 && (
+        <button type="button" className="mt-1 text-[11px] font-bold text-sky-600" onClick={() => onChange(value * 1000)}>
+          Ý bạn là {fmtVnd(value * 1000)}đ?
+        </button>
+      )}
     </label>
   );
 }
@@ -326,16 +330,6 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
           ]}
           onChange={(v) => setBill({ shuttleBy: v })}
         />
-        <Segmented
-          label="Làm tròn (1.000đ)"
-          value={bill.rounding}
-          options={[
-            ["nearest", "Gần nhất"],
-            ["up", "Lên"],
-            ["down", "Xuống"],
-          ]}
-          onChange={(v) => setBill({ rounding: v })}
-        />
         <label className="block">
           <span className="text-xs font-bold text-slate-600">Giờ kết thúc buổi</span>
           <input
@@ -347,7 +341,7 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
           />
         </label>
         <p className="self-end text-[11px] font-medium leading-snug text-slate-500">
-          Tiền sân chia theo số phút có mặt × tỉ lệ nam/nữ. Người chưa bấm “Về” tính tới giờ kết thúc buổi.
+          Tiền sân chia theo số phút có mặt × tỉ lệ nam/nữ, mỗi người làm tròn lên 1.000đ. Người chưa bấm “Về” tính tới giờ kết thúc buổi.
         </p>
       </section>
 
@@ -367,10 +361,10 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
                   <th className="w-24 px-1">Vào</th>
                   <th className="w-24 px-1">Ra</th>
                   <th className="w-12 px-1 text-right">Phút</th>
-                  <th className="w-14 px-1 text-right">Sân</th>
-                  <th className="w-14 px-1 text-right">Cầu</th>
-                  <th className="w-28 px-1">Thêm (k)</th>
-                  <th className="w-16 px-1 text-right">Tổng</th>
+                  <th className="w-20 px-1 text-right">Sân (đ)</th>
+                  <th className="w-20 px-1 text-right">Cầu (đ)</th>
+                  <th className="w-36 px-1">Thêm (đ)</th>
+                  <th className="w-24 px-1 text-right">Tổng (đ)</th>
                 </tr>
               </thead>
               <tbody>
@@ -420,18 +414,20 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
                         )}
                       </td>
                       <td className="px-1 text-right tabular-nums text-slate-500">{line.minutes}</td>
-                      <td className="px-1 text-right tabular-nums">{fmtK(line.court)}</td>
-                      <td className="px-1 text-right tabular-nums">{fmtK(line.shuttle)}</td>
+                      <td className="px-1 text-right tabular-nums">{fmtVnd(line.court)}</td>
+                      <td className="px-1 text-right tabular-nums">{fmtVnd(line.shuttle)}</td>
                       <td className="px-1">
                         <input
                           value={extras[m.id] ?? ""}
-                          placeholder="vd 40+20"
+                          placeholder="vd 40.000 + 20.000"
+                          title="Nhập số tiền VNĐ, nhiều khoản cách nhau bằng + hoặc dấu phẩy. Gõ tắt 40 = 40.000đ"
                           aria-label={`Khoản thêm của ${m.name}`}
                           onChange={(e) => setExtra(m.id, e.target.value)}
+                          onBlur={(e) => setExtra(m.id, formatExtras(e.target.value))}
                           className="w-full select-text rounded-lg border border-slate-200 bg-white px-1.5 py-0.5 text-xs font-bold text-slate-900 placeholder:font-medium placeholder:text-slate-400"
                         />
                       </td>
-                      <td className="rounded-r-xl px-1 text-right tabular-nums text-emerald-700">{fmtK(line.total)}</td>
+                      <td className="rounded-r-xl px-1 text-right tabular-nums text-emerald-700">{fmtVnd(line.total)}</td>
                     </tr>
                   );
                 })}
@@ -445,7 +441,7 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
             <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">Thu sân + cầu: {fmtVnd(result.collected)}đ</span>
             <span
               className={`rounded-full px-3 py-1 ${diff === 0 ? "bg-emerald-100 text-emerald-700" : diff > 0 ? "bg-sky-100 text-sky-700" : "bg-rose-100 text-rose-600"}`}
-              title="Chênh lệch do làm tròn"
+              title="Chênh lệch do làm tròn lên 1.000đ mỗi người"
             >
               {diff === 0 ? "Khớp" : diff > 0 ? `Dư ${fmtVnd(diff)}đ` : `Thiếu ${fmtVnd(-diff)}đ`}
             </span>

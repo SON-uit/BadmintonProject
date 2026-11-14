@@ -17,13 +17,24 @@ const baloo = Baloo_2({
 
 export const metadata: Metadata = {
   title: "Linh Cáo Badminton – Xếp sân cầu lông",
-  description: "Xếp sân đánh đôi cầu lông dạng game 3D: hàng chờ, kéo thả, xếp ngẫu nhiên, thống kê.",
+  description: "Xếp sân đánh đôi cầu lông dạng game 3D: điểm danh, sảnh chờ, kéo thả, xếp ngẫu nhiên, tính tiền.",
+  applicationName: "Linh Cáo Badminton",
+  // "Thêm vào màn hình chính" trên iPhone: mở toàn màn hình như app
+  appleWebApp: { capable: true, title: "Linh Cáo", statusBarStyle: "black-translucent" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  userScalable: false,
+  // phủ cả vùng tai thỏ / thanh home; các thanh HUD tự chừa env(safe-area-inset-*)
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
+    { media: "(prefers-color-scheme: light)", color: "#0f172a" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

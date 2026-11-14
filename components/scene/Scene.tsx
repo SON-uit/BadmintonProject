@@ -289,7 +289,8 @@ export default function Scene({ overlay, fitKey, insets, compact }: SceneProps) 
     <Canvas
       flat
       shadows="percentage"
-      dpr={[1, 2]}
+      // điện thoại: độ phân giải tối đa 1.5x + bóng nhỏ hơn — mượt hơn, đỡ nóng máy, đỡ hao pin
+      dpr={compact ? [1, 1.5] : [1, 2]}
       camera={{ position: [0, 30, 36], fov: 42, near: 0.5, far: 600 }}
       onPointerMissed={() => clearSelection()}
     >
@@ -304,7 +305,7 @@ export default function Scene({ overlay, fitKey, insets, compact }: SceneProps) 
         intensity={night ? 0.55 : 1.5}
         color={night ? "#dfe6ff" : "#ffffff"}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={compact ? [1024, 1024] : [2048, 2048]}
         shadow-camera-left={-60}
         shadow-camera-right={60}
         shadow-camera-top={60}

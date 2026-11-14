@@ -38,6 +38,18 @@ body {
   height: 100%;
   overflow: hidden;
   background: #8fd3ff;
+  /* điện thoại: không kéo-làm-mới / nảy trang khi vuốt trên sân */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+/* bỏ độ trễ chạm và phóng to khi chạm hai lần lên nút */
+button,
+a,
+input,
+label,
+select {
+  touch-action: manipulation;
 }
 
 @layer components {

@@ -38,8 +38,10 @@ function useEdge(ref: RefObject<HTMLElement | null>, edge: "top" | "bottom", fal
     const el = ref.current;
     if (!el || !active) return;
     const measure = () => {
-      const r = el.getBoundingClientRect();
-      setValue(Math.round(edge === "bottom" ? r.bottom : window.innerHeight - r.top));
+      // offset* bỏ qua transform: thanh trượt ẩn đi vẫn giữ số đo cũ (camera, các nút không bị nhảy)
+      const parent = el.offsetParent as HTMLElement | null;
+      const bottom = el.offsetTop + el.offsetHeight;
+      setValue(Math.round(edge === "bottom" ? bottom : (parent?.clientHeight ?? window.innerHeight) - el.offsetTop));
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -170,7 +172,7 @@ function TopBar({ barRef, onOpenStats, onFit }: { barRef: RefObject<HTMLElement 
  * Thanh trên — điện thoại: một dải mỏng một dòng sát mép trên (logo nhỏ · trạng thái · giờ)
  * để nhường tối đa chỗ cho sân. Mọi nút chức năng nằm ở thanh dưới.
  */
-function MobileTopBar({ barRef }: { barRef: RefObject<HTMLElement | null> }) {
+function MobileTopBar({ barRef, hidden }: { barRef: RefObject<HTMLElement | null>; hidden: boolean }) {
   const courts = useGame((s) => s.courts);
   const waiting = useGame((s) => s.queue.length);
   const playing = courts.filter((c) => c.status === "playing").length;
@@ -184,23 +186,26 @@ function MobileTopBar({ barRef }: { barRef: RefObject<HTMLElement | null> }) {
   return (
     <header
       ref={barRef}
-      className="absolute inset-x-0 top-0 z-30 box-content flex h-10 items-center gap-2 rounded-b-2xl bg-[#0f172a]/85 px-2.5 text-white shadow-[0_4px_16px_rgb(0_0_0/0.25)] backdrop-blur-md"
+      // thao tác trên sân: trượt lên ẩn đi (vị trí đo vẫn giữ nguyên nên camera không giật)
+      className={`absolute inset-x-0 top-0 z-30 box-content flex h-8 items-center gap-1.5 rounded-b-xl bg-[#0f172a]/80 px-2 text-white shadow-[0_2px_10px_rgb(0_0_0/0.25)] backdrop-blur-md transition-transform duration-300 ${
+        hidden ? "-translate-y-full" : ""
+      }`}
       style={{ paddingTop: "env(safe-area-inset-top)" }}
+      aria-hidden={hidden}
     >
       {/* dải màu thương hiệu mảnh dưới đáy */}
-      <span className="pointer-events-none absolute inset-x-4 bottom-0 h-[2px] rounded-full bg-gradient-to-r from-[#fb923c] via-[#ec4899] to-[#38bdf8] opacity-80" />
+      <span className="pointer-events-none absolute inset-x-3 bottom-0 h-[2px] rounded-full bg-gradient-to-r from-[#fb923c] via-[#ec4899] to-[#38bdf8] opacity-80" />
 
-      <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-[#fb923c] to-[#ec4899] text-base shadow-md">🦊</span>
-      <span className="min-w-0 leading-none">
-        <span className="font-display block truncate text-[15px] font-extrabold tracking-wide text-white">Linh Cáo</span>
-        <span className="block text-[8px] font-extrabold tracking-[0.3em] text-[#fdba74]">BADMINTON</span>
+      <span className="grid size-6 shrink-0 place-items-center rounded-md bg-gradient-to-br from-[#fb923c] to-[#ec4899] text-sm">🦊</span>
+      <span className="font-display min-w-0 truncate text-sm font-extrabold leading-none tracking-wide text-white">
+        Linh Cáo <span className="text-[9px] font-extrabold tracking-[0.2em] text-[#fdba74]">BADMINTON</span>
       </span>
 
-      <span className="ml-auto flex shrink-0 items-center gap-1 text-[11px] font-bold tabular-nums">
+      <span className="ml-auto flex shrink-0 items-center gap-1 text-[10px] font-bold tabular-nums">
         <Stat dot="#94a3b8" value={courts.length} label="sân" />
         <Stat dot="#fb923c" value={playing} label="đánh" pulse={playing > 0} />
         <Stat dot="#a78bfa" value={waiting} label="chờ" />
-        <span className="font-display ml-0.5 rounded-lg bg-[#ffffff] px-1.5 py-0.5 text-[13px] font-extrabold text-[#0f172a]">
+        <span className="font-display ml-0.5 rounded-md bg-[#ffffff] px-1.5 text-xs font-extrabold leading-5 text-[#0f172a]">
           {pad(now.getHours())}:{pad(now.getMinutes())}
         </span>
       </span>
@@ -210,7 +215,7 @@ function MobileTopBar({ barRef }: { barRef: RefObject<HTMLElement | null> }) {
 
 function Stat({ dot, value, label, pulse }: { dot: string; value: number; label: string; pulse?: boolean }) {
   return (
-    <span className="flex items-center gap-1 rounded-full bg-white/10 py-0.5 pl-1.5 pr-2 text-[#f1f5f9]">
+    <span className="flex items-center gap-0.5 rounded-full bg-white/10 py-px pl-1.5 pr-1.5 text-[#f1f5f9]">
       <span className={`size-1.5 rounded-full ${pulse ? "animate-pulse" : ""}`} style={{ background: dot }} />
       <span className="font-extrabold">{value}</span>
       <span className="font-semibold text-[#94a3b8]">{label}</span>
@@ -645,6 +650,30 @@ export default function Game() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [fitKey, setFitKey] = useState(0);
   const [tab, setTab] = useState<MobileTab>("court");
+  // điện thoại: đang chạm / kéo trên sân thì thu thanh trên lại, thả tay ~2.5 giây sau hiện lại
+  const [barHidden, setBarHidden] = useState(false);
+  const showTimer = useRef<number | undefined>(undefined);
+  const sceneTouching = useRef(false);
+  const onScenePointerDown = () => {
+    sceneTouching.current = true;
+    window.clearTimeout(showTimer.current);
+    setBarHidden(true);
+  };
+  useEffect(() => {
+    const onUp = () => {
+      if (!sceneTouching.current) return;
+      sceneTouching.current = false;
+      window.clearTimeout(showTimer.current);
+      showTimer.current = window.setTimeout(() => setBarHidden(false), 2500);
+    };
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      window.clearTimeout(showTimer.current);
+    };
+  }, []);
   const clearSelection = useGame((s) => s.clearSelection);
   const setPortrait = useGame((s) => s.setPortrait);
   const dialogOpen = useGame((s) => s.dialog !== null);
@@ -704,12 +733,12 @@ export default function Game() {
       style={vars}
     >
       {/* isolate: nhãn 3D (Html) không bao giờ đè lên HUD */}
-      <div className="absolute inset-0 isolate" aria-hidden={lobby}>
+      <div className="absolute inset-0 isolate" aria-hidden={lobby} onPointerDownCapture={mobile ? onScenePointerDown : undefined}>
         <Scene overlay={overlay as RefObject<HTMLElement>} fitKey={fitKey} insets={insets} compact={small} />
         <div ref={overlay} className={`pointer-events-none absolute inset-0 overflow-hidden ${lobby ? "invisible" : ""}`} />
       </div>
 
-      {mobile ? <MobileTopBar barRef={bar} /> : <TopBar barRef={bar} onOpenStats={() => setStatsOpen(true)} onFit={fit} />}
+      {mobile ? <MobileTopBar barRef={bar} hidden={barHidden && !lobby} /> : <TopBar barRef={bar} onOpenStats={() => setStatsOpen(true)} onFit={fit} />}
       {!mobile && <Clock />}
 
       {mobile ? (

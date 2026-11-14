@@ -9,8 +9,6 @@ export interface BillSettings {
   genderDiff: number;
   /** Tiền cầu chia theo đầu người (mặc định) hay theo thời gian như tiền sân. */
   shuttleBy: "head" | "time";
-  /** Làm tròn tiền mỗi người tới 1.000đ. */
-  rounding: "nearest" | "up" | "down";
 }
 
 export const DEFAULT_BILL: BillSettings = {
@@ -18,7 +16,6 @@ export const DEFAULT_BILL: BillSettings = {
   shuttleFee: 0,
   genderDiff: 0,
   shuttleBy: "head",
-  rounding: "nearest",
 };
 
 export interface BillLine {
@@ -55,18 +52,37 @@ export const genderWeight = (gender: Member["gender"], diff: number) => {
   return gender === "male" ? 50 + d : 50 - d;
 };
 
-/** "40+20", "40, 20", "40 -5" (đơn vị nghìn đồng) → [40000, 20000]. */
+/** Chuỗi chỉ gồm chữ số trong ô nhập tiền ("600.000 đ" → 600000). */
+export const parseVnd = (text: string) => Number(text.replace(/\D/g, "") || 0);
+
+/**
+ * Khoản thêm theo VNĐ: "40.000 + 20.000", "40000, -5000" → [40000, 20000].
+ * Gõ tắt số nhỏ hơn 1.000 được hiểu là nghìn đồng: "40+20" = 40.000 + 20.000.
+ */
 export function parseExtras(text: string | undefined): number[] {
   if (!text) return [];
-  const found = text.replace(/,/g, "+").match(/[+-]?\s*\d+(?:\.\d+)?/g) ?? [];
-  return found.map((n) => Math.round(Number(n.replace(/\s/g, "")) * 1000)).filter((n) => Number.isFinite(n) && n !== 0);
+  // bỏ dấu chấm / khoảng trắng phân cách hàng nghìn ("40.000" → "40000"), dấu phẩy = dấu cộng
+  const clean = text.replace(/(\d)[.\s](?=\d{3}(?!\d))/g, "$1").replace(/,/g, "+");
+  const found = clean.match(/[+-]?\s*\d+/g) ?? [];
+  return found
+    .map((n) => {
+      const v = Number(n.replace(/\s/g, ""));
+      return Math.abs(v) < 1000 ? v * 1000 : v;
+    })
+    .filter((n) => Number.isFinite(n) && n !== 0);
 }
 
-function roundTo1k(amount: number, mode: BillSettings["rounding"]) {
-  const k = amount / 1000;
-  // trừ sai số dấu phẩy động để 44.0000001 không bị làm tròn lên 45
-  const r = mode === "up" ? Math.ceil(k - 1e-6) : mode === "down" ? Math.floor(k + 1e-6) : Math.round(k);
-  return r * 1000;
+/** Định dạng lại ô khoản thêm cho dễ đọc: "40+20" → "40.000 + 20.000". */
+export function formatExtras(text: string): string {
+  return parseExtras(text)
+    .map((v, i) => (i === 0 ? (v < 0 ? "-" : "") : v < 0 ? " - " : " + ") + fmtVnd(Math.abs(v)))
+    .join("");
+}
+
+/** Mỗi người luôn được làm tròn LÊN tới 1.000đ (thu dư vài nghìn còn hơn thiếu). */
+function roundUp1k(amount: number) {
+  // trừ sai số dấu phẩy động để 44.0000001k không bị làm tròn lên 45k
+  return Math.ceil(amount / 1000 - 1e-6) * 1000;
 }
 
 /**
@@ -103,8 +119,8 @@ export function computeBill(
   const lines: BillLine[] = present.map((p) => {
     const byTime = timeUnits > 0 ? (p.weight * p.minutes) / timeUnits : 0;
     const byHead = headUnits > 0 ? p.weight / headUnits : 0;
-    const court = roundTo1k(settings.courtFee * byTime, settings.rounding);
-    const shuttle = roundTo1k(settings.shuttleFee * (settings.shuttleBy === "time" ? byTime : byHead), settings.rounding);
+    const court = roundUp1k(settings.courtFee * byTime);
+    const shuttle = roundUp1k(settings.shuttleFee * (settings.shuttleBy === "time" ? byTime : byHead));
     const base = court + shuttle;
     const extra = parseExtras(extras[p.member.id]);
     return {
