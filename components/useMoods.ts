@@ -26,7 +26,7 @@ export function useQueueView() {
   const queue = useGame((s) => s.queue);
   const queuedAt = useGame((s) => s.queuedAt);
   const matches = useGame((s) => s.matches);
-  const tick = useTick();  
+  const tick = useTick();
 
   return useMemo(() => {
     // Math.max: thay đổi dữ liệu (thêm người, kết thúc trận) được tính ngay, không đợi nhịp 15 giây
