@@ -141,6 +141,26 @@ function ZoomWatcher({ overlay }: { overlay: RefObject<HTMLElement> }) {
   return null;
 }
 
+/** Bục sảnh chờ: viền trắng dày (vàng khi đang kéo người), nổi hẳn lên khỏi sàn đấu. */
+function Pad({ x = 0, z = 0, width, depth, dragging }: { x?: number; z?: number; width: number; depth: number; dragging: boolean }) {
+  return (
+    <group position={[x, 0, z]}>
+      <mesh position-y={-0.05}>
+        <boxGeometry args={[width + 1.2, 0.14, depth + 1.2]} />
+        <meshBasicMaterial color={dragging ? "#ffe14d" : "#ffffff"} />
+      </mesh>
+      <mesh position-y={-0.045} receiveShadow>
+        <boxGeometry args={[width + 0.6, 0.14, depth + 0.6]} />
+        <meshToonMaterial color="#8b5cf6" />
+      </mesh>
+      <mesh position-y={-0.04} receiveShadow>
+        <boxGeometry args={[width, 0.14, depth]} />
+        <meshToonMaterial color="#a78bfa" />
+      </mesh>
+    </group>
+  );
+}
+
 function QueueZone({
   layout,
   count,
@@ -153,50 +173,57 @@ function QueueZone({
   overlay: RefObject<HTMLElement>;
 }) {
   const dragging = useGame((s) => s.draggingId !== null);
+  const { arms } = layout;
   // hàng rào phân cách sảnh chờ với dãy sân: phía sau (và phía trước nếu sảnh kẹp giữa hai dãy sân)
   const fenceZ = layout.depth / 2 + (portrait ? 2.2 : 1.4);
   const fences = layout.between ? [-fenceZ, fenceZ] : [-fenceZ];
+  // chữ U: hàng rào đáy chỉ chắn giữa hai cánh; mỗi cánh có hàng rào dọc phía trong
+  const armFenceX = arms ? arms.x - arms.width / 2 - 0.9 : 0;
+  const fenceWidth = arms ? armFenceX * 2 : layout.width + 1.2;
+  const fenceLineZ = layout.centerZ - fenceZ;
   return (
-    <group position={[0, 0, layout.centerZ]}>
-      {/* sảnh chờ là một bục riêng, viền trắng dày, nổi hẳn lên khỏi sàn đấu */}
-      <mesh position-y={-0.05}>
-        <boxGeometry args={[layout.width + 1.2, 0.14, layout.depth + 1.2]} />
-        <meshBasicMaterial color={dragging ? "#ffe14d" : "#ffffff"} />
-      </mesh>
-      <mesh position-y={-0.045} receiveShadow>
-        <boxGeometry args={[layout.width + 0.6, 0.14, layout.depth + 0.6]} />
-        <meshToonMaterial color="#8b5cf6" />
-      </mesh>
-      <mesh position-y={-0.04} receiveShadow>
-        <boxGeometry args={[layout.width, 0.14, layout.depth]} />
-        <meshToonMaterial color="#a78bfa" />
-      </mesh>
-      {fences.map((fz) => (
-        <Fence key={fz} z={fz} width={layout.width + 1.2} />
-      ))}
-      <Html
-        portal={overlay}
-        // màn hình dọc: đặt biển ở mép trước để không tràn ra ngoài màn hình
-        position={portrait ? [0, 0.2, layout.depth / 2 + 1.2] : [-layout.width / 2 - 1, 0.3, 0]}
-        center
-        zIndexRange={[20, 0]}
-        style={{ pointerEvents: "none" }}
-      >
-        <div className="queue-sign font-display whitespace-nowrap rounded-xl border-2 border-white bg-violet-600 px-3 py-1 text-center text-sm font-extrabold leading-tight text-white shadow-lg">
-          🪑 SẢNH CHỜ
-          <div className="text-[11px] font-bold text-violet-100">{count} người đang chờ</div>
-        </div>
-      </Html>
+    <group>
+      <group position={[0, 0, layout.centerZ]}>
+        <Pad width={layout.width} depth={layout.depth} dragging={dragging} />
+        {fences.map((fz) => (
+          <Fence key={fz} z={fz} width={fenceWidth} />
+        ))}
+        <Html
+          portal={overlay}
+          // màn hình dọc: đặt biển ở mép trước để không tràn ra ngoài màn hình
+          position={portrait ? [0, 0.2, layout.depth / 2 + 1.2] : [-layout.width / 2 - 1, 0.3, 0]}
+          center
+          zIndexRange={[20, 0]}
+          style={{ pointerEvents: "none" }}
+        >
+          <div className="queue-sign font-display whitespace-nowrap rounded-xl border-2 border-white bg-violet-600 px-3 py-1 text-center text-sm font-extrabold leading-tight text-white shadow-lg">
+            🪑 SẢNH CHỜ
+            <div className="text-[11px] font-bold text-violet-100">{count} người đang chờ</div>
+          </div>
+        </Html>
+      </group>
+      {arms &&
+        [-1, 1].map((side) => {
+          // cánh nối liền vào bục đáy (phủ chồng lên phần viền) để thành một chữ U liền mạch
+          const depth = arms.zFront - arms.zBack + 0.6;
+          const fenceLen = fenceLineZ - arms.zBack;
+          return (
+            <group key={side}>
+              <Pad x={side * arms.x} z={arms.zBack + depth / 2} width={arms.width} depth={depth} dragging={dragging} />
+              <Fence x={side * armFenceX} z={arms.zBack + fenceLen / 2} width={fenceLen} rotY={Math.PI / 2} />
+            </group>
+          );
+        })}
     </group>
   );
 }
 
 /** Hàng rào thấp kiểu dây chắn (cột + dây sọc) — ranh giới giữa sảnh chờ và khu sân. */
-function Fence({ z, width }: { z: number; width: number }) {
+function Fence({ x = 0, z, width, rotY = 0 }: { x?: number; z: number; width: number; rotY?: number }) {
   const posts = Math.max(2, Math.round(width / 3) + 1);
   const step = width / (posts - 1);
   return (
-    <group position={[0, 0, z]}>
+    <group position={[x, 0, z]} rotation-y={rotY}>
       {Array.from({ length: posts }, (_, i) => (
         <mesh key={i} position={[-width / 2 + i * step, 0.45, 0]} castShadow>
           <cylinderGeometry args={[0.09, 0.12, 0.9, 8]} />

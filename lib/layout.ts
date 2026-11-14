@@ -8,7 +8,8 @@ export const COURT_MARGIN = 1.2;
  * Ba kiểu xếp sân:
  * - Màn hình ngang, tới 8 sân: một dãy ngang, hàng chờ ngay phía trước (sân to nhất, sân nào cũng sát hàng chờ).
  * - Màn hình ngang, từ 9 sân: hai dãy đối diện nhau, hàng chờ nằm giữa.
- * - Màn hình dọc (điện thoại): lưới 2 cột xếp lùi dần ra sau, hàng chờ phía trước.
+ * - Màn hình dọc (điện thoại): lưới 2 cột xếp lùi dần ra sau; hàng chờ một hàng phía trước,
+ *   đông hơn thì tràn lên hai bên dãy sân thành chữ U.
  */
 export const SINGLE_ROW_MAX = 8;
 const PORTRAIT_PER_ROW = 2;
@@ -89,19 +90,100 @@ export function courtIndexAt(x: number, z: number, total: number, portrait = fal
   return best;
 }
 
+/** Cánh chữ U (màn hình dọc): hai dải bục đối xứng chạy dọc hai bên dãy sân. */
+export interface QueueArms {
+  /** Tâm cánh phải (cánh trái ở -x). */
+  x: number;
+  width: number;
+  /** Mép sau (phía xa camera) và mép trước (nối vào bục đáy). */
+  zBack: number;
+  zFront: number;
+}
+
 export interface QueueLayout {
+  /** Bề ngang bục đáy (khi có cánh: trải hết tới mép ngoài hai cánh). */
   width: number;
   depth: number;
   centerZ: number;
   /** Sảnh chờ kẹp giữa hai dãy sân (cần hàng rào ở cả hai phía). */
   between: boolean;
+  /** Màn hình dọc, đông người: sảnh chữ U ôm quanh khu sân. */
+  arms: QueueArms | null;
   position: (index: number) => [number, number];
+}
+
+/** Bề ngang mỗi cánh chữ U và khoảng hở giữa thảm sân với cánh (chỗ hàng rào). */
+const ARM_W = 3.2;
+const ARM_GAP = 1;
+
+/**
+ * Màn hình dọc: một hàng ở đáy (trước dãy sân) trước; đông hơn thì tràn lên hai cánh
+ * dọc hai bên dãy sân thành chữ U — sảnh không phình to xuống dưới, sân vẫn nằm giữa khung.
+ * Hai cánh cũng đầy thì mới thêm hàng ở đáy.
+ */
+function portraitQueueLayout(count: number, totalCourts: number): QueueLayout {
+  const z0 = queueZ0(true);
+  const baseWidth = Math.max(widestRow(totalCourts, true) * COURT_PITCH - 2, 14);
+  const baseCols = Math.max(1, Math.floor((baseWidth - 1.2) / QUEUE_DX));
+  if (count <= baseCols) {
+    return {
+      width: baseWidth,
+      depth: QUEUE_DZ + 1,
+      centerZ: z0,
+      between: false,
+      arms: null,
+      position: (index) => [(index - (count - 1) / 2) * QUEUE_DX, z0],
+    };
+  }
+
+  // mép ngoài thảm của dãy sân rộng nhất → cánh nằm ngay bên ngoài, cách một hàng rào
+  const courtEdge = (widestRow(totalCourts, true) * COURT_PITCH - GAP_X) / 2 + COURT_MARGIN;
+  const armX = courtEdge + ARM_GAP + ARM_W / 2;
+  const width = 2 * (armX + ARM_W / 2);
+  const cols = Math.max(1, Math.floor((width - 1.2) / QUEUE_DX));
+  const dx = Math.min(QUEUE_DX, (width - 1.2) / cols);
+  const courtRows = Math.max(1, Math.ceil(totalCourts / PORTRAIT_PER_ROW));
+  const backZ = -(courtRows - 1) * PORTRAIT_ROW_PITCH - COURT_L / 2;
+  // người trên cánh: từ sát hàng đáy lùi dần ra sau tới hết dãy sân
+  const armFirstZ = z0 - QUEUE_DZ;
+  const perArm = Math.max(1, Math.floor((armFirstZ - backZ) / QUEUE_DZ) + 1);
+  const armCap = perArm * 2;
+  // phần còn lại (cả hai cánh đã đầy) xếp thêm hàng ở đáy, phía trước hàng đầu
+  const extra = Math.max(0, count - cols - armCap);
+  const rows = 1 + Math.ceil(extra / cols);
+  const depth = rows * QUEUE_DZ + 1;
+  const centerZ = z0 + ((rows - 1) * QUEUE_DZ) / 2;
+
+  const rowPos = (row: number, inRow: number, col: number): [number, number] => {
+    const stagger = row % 2 === 1 ? dx / 4 : 0;
+    return [(col - (inRow - 1) / 2) * dx + stagger, z0 + row * QUEUE_DZ];
+  };
+  return {
+    width,
+    depth,
+    centerZ,
+    between: false,
+    arms: { x: armX, width: ARM_W, zBack: backZ - 0.6, zFront: centerZ - depth / 2 },
+    position: (index) => {
+      if (index < cols) return rowPos(0, cols, index);
+      const a = index - cols;
+      if (a < armCap) {
+        // xen kẽ trái / phải để hai cánh dài đều nhau
+        const side = a % 2 === 0 ? -1 : 1;
+        return [side * armX, armFirstZ - Math.floor(a / 2) * QUEUE_DZ];
+      }
+      const e = a - armCap;
+      const row = 1 + Math.floor(e / cols);
+      return rowPos(row, Math.min(cols, extra - (row - 1) * cols), e % cols);
+    },
+  };
 }
 
 /** Thảm hàng chờ: rộng theo dãy sân, tự thêm cột để không tràn vào dãy sân phía trước. */
 export function queueLayout(count: number, totalCourts: number, portrait = false): QueueLayout {
+  if (portrait) return portraitQueueLayout(count, totalCourts);
   const twoRows = isTwoRows(totalCourts, portrait);
-  const width = Math.max(widestRow(totalCourts, portrait) * COURT_PITCH - 2, portrait ? 14 : 20);
+  const width = Math.max(widestRow(totalCourts, portrait) * COURT_PITCH - 2, 20);
   let cols = Math.max(1, Math.floor((width - 1.2) / QUEUE_DX));
   // kẹp giữa hai dãy sân thì không thêm hàng được nữa: thêm cột, đứng sát nhau hơn
   if (twoRows) cols = Math.max(cols, Math.ceil(count / QUEUE_ROWS_BETWEEN));
@@ -115,6 +197,7 @@ export function queueLayout(count: number, totalCourts: number, portrait = false
     depth: shownRows * QUEUE_DZ + 1,
     centerZ: z0 + ((shownRows - 1) * QUEUE_DZ) / 2,
     between: twoRows,
+    arms: null,
     position: (index) => {
       const row = Math.floor(index / cols);
       // mỗi hàng được căn giữa theo số người thực tế trong hàng đó
