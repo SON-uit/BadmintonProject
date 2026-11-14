@@ -12,6 +12,18 @@ const toHHMM = (ts: number) => {
   const d = new Date(ts);
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
+/** Nền tảng để chọn cách lưu ảnh phù hợp. */
+function platform(): "ios" | "android" | "inapp" | "desktop" {
+  if (typeof navigator === "undefined") return "desktop";
+  const ua = navigator.userAgent;
+  // trình duyệt nhúng trong app (Zalo, Messenger, Facebook, Instagram, Line, TikTok) thường chặn tải file
+  if (/Zalo|FBAN|FBAV|FB_IAB|Messenger|Instagram|Line\/|TikTok|musical_ly/i.test(ua)) return "inapp";
+  // iPadOS báo là Mac nhưng có cảm ứng
+  if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "ios";
+  if (/Android/i.test(ua)) return "android";
+  return "desktop";
+}
+
 /** "21:30" → mốc thời gian cùng ngày với `base`. */
 function fromHHMM(value: string, base: number): number | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(value);
@@ -189,6 +201,17 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
   const [image, setImage] = useState<{ blob: Blob; url: string } | null>(null);
   /** Máy không chia sẻ được ảnh: hiện ảnh xem trước để người dùng nhấn giữ → Lưu ảnh. */
   const [preview, setPreview] = useState(false);
+  /** Ảnh xem trước dạng data URL: trình duyệt trong app (Zalo, Messenger) nhấn giữ lưu được, blob: thì hay không. */
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const openPreview = (blob: Blob) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPreviewSrc(typeof reader.result === "string" ? reader.result : null);
+      setPreview(true);
+    };
+    reader.onerror = () => setPreview(true);
+    reader.readAsDataURL(blob);
+  };
   const imageRef = useRef(image);
   imageRef.current = image;
 
@@ -203,39 +226,65 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
 
   const text = [title, ...result.lines.map(billLineText), `Tổng: ${fmtVnd(result.grandTotal)}đ`].join("\n");
 
-  const exportImage = async () => {
-    let img = imageRef.current;
-    if (!img) {
-      // ảnh chưa kịp dựng: dựng ngay
-      setBusy(true);
-      const blob = await renderBillImage(result, bill, title).catch(() => null);
-      setBusy(false);
-      if (!blob) {
-        notify("Không xuất được ảnh", "error");
-        return;
-      }
-      img = { blob, url: URL.createObjectURL(blob) };
-      setImage(img);
+  const getImage = async () => {
+    if (imageRef.current) return imageRef.current;
+    // ảnh chưa kịp dựng: dựng ngay
+    setBusy(true);
+    const blob = await renderBillImage(result, bill, title).catch(() => null);
+    setBusy(false);
+    if (!blob) {
+      notify("Không xuất được ảnh", "error");
+      return null;
     }
-    const touch = window.matchMedia("(pointer: coarse)").matches;
-    if (touch) {
-      // điện thoại: bảng chia sẻ của hệ điều hành → "Lưu hình ảnh" vào Ảnh / Bộ sưu tập, hoặc gửi Zalo, Messenger…
-      const file = new File([img.blob], fileName, { type: "image/png" });
-      if (navigator.canShare?.({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file], title });
-          return;
-        } catch (e) {
-          if ((e as DOMException)?.name === "AbortError") return; // người dùng tự đóng bảng chia sẻ
-        }
-      }
-      // không chia sẻ được: hiện ảnh để nhấn giữ → Lưu ảnh
-      setPreview(true);
+    const img = { blob, url: URL.createObjectURL(blob) };
+    setImage(img);
+    return img;
+  };
+
+  /** Mở bảng chia sẻ của máy với file ảnh. Trả về false nếu trình duyệt không hỗ trợ / lỗi. */
+  const shareFile = async (blob: Blob) => {
+    const file = new File([blob], fileName, { type: "image/png" });
+    if (!navigator.canShare?.({ files: [file] })) return false;
+    try {
+      await navigator.share({ files: [file], title });
+    } catch (e) {
+      // người dùng tự đóng bảng chia sẻ thì thôi, lỗi khác thì báo để dùng cách dự phòng
+      if ((e as DOMException)?.name !== "AbortError") return false;
+    }
+    return true;
+  };
+
+  /**
+   * Lưu ảnh bill — trang web KHÔNG xin được quyền thư viện ảnh; việc lưu do hệ điều hành làm:
+   * - iPhone / iPad: bảng chia sẻ → "Lưu hình ảnh" vào Ảnh (lần đầu iOS tự hỏi quyền "Thêm ảnh").
+   * - Android: tải file về thư mục Download — Bộ sưu tập / Google Photos tự hiện trong album "Download".
+   * - Trình duyệt trong Zalo / Messenger / Facebook không cho tải file: hiện ảnh để nhấn giữ → Lưu ảnh.
+   */
+  const exportImage = async () => {
+    const img = await getImage();
+    if (!img) return;
+    const p = platform();
+    if (p === "inapp") {
+      openPreview(img.blob);
+      return;
+    }
+    if (p === "ios") {
+      if (!(await shareFile(img.blob))) openPreview(img.blob);
       return;
     }
     download(img.url);
-    notify("Đã tải ảnh bảng tính tiền về máy", "success");
+    notify(
+      p === "android" ? "Đã lưu ảnh vào thư mục Download — mở Bộ sưu tập / Google Photos, album “Download”" : "Đã tải ảnh bảng tính tiền về máy",
+      "success",
+    );
   };
+
+  const shareImage = async () => {
+    const img = await getImage();
+    if (!img) return;
+    if (!(await shareFile(img.blob))) openPreview(img.blob);
+  };
+  const canShareFiles = typeof navigator !== "undefined" && typeof navigator.canShare === "function" && platform() !== "inapp";
 
   // dựng lại ảnh mỗi khi số liệu đổi (trễ một chút để không vẽ liên tục khi đang gõ)
   useEffect(() => {
@@ -290,8 +339,13 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
           <button className="btn btn-ghost mr-auto" onClick={copyText} disabled={result.lines.length === 0}>
             📋 Sao chép chữ
           </button>
+          {canShareFiles && platform() !== "ios" && (
+            <button className="btn btn-ghost" onClick={shareImage} disabled={busy || result.lines.length === 0} title="Gửi ảnh bill qua Zalo, Messenger…">
+              📤 Gửi ảnh
+            </button>
+          )}
           <button className="btn btn-sky" onClick={exportImage} disabled={busy || result.lines.length === 0}>
-            🖼️ {busy ? "Đang tạo ảnh…" : "Lưu ảnh bill"}
+            🖼️ {busy ? "Đang tạo ảnh…" : platform() === "ios" ? "Lưu / gửi ảnh bill" : "Lưu ảnh bill"}
           </button>
           <button className="btn btn-primary" onClick={onClose}>
             Xong
@@ -341,7 +395,7 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
           />
         </label>
         <p className="self-end text-[11px] font-medium leading-snug text-slate-500">
-          Tiền sân chia theo số phút có mặt × tỉ lệ nam/nữ, mỗi người làm tròn lên 1.000đ. Người chưa bấm “Về” tính tới giờ kết thúc buổi.
+          Tiền sân chia theo số phút có mặt × tỉ lệ nam/nữ; mỗi người trả (phần sân + phần cầu) làm tròn lên 1.000đ. Người chưa bấm “Về” tính tới giờ kết thúc buổi.
         </p>
       </section>
 
@@ -353,7 +407,7 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px] border-separate border-spacing-y-1 text-sm" aria-label="Bảng tính tiền">
+            <table className="w-full min-w-[780px] border-separate border-spacing-y-1 text-sm" aria-label="Bảng tính tiền">
               <thead>
                 <tr className="text-left text-[10px] font-extrabold uppercase tracking-wide text-slate-400">
                   <th className="w-6 px-1">#</th>
@@ -363,6 +417,7 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
                   <th className="w-12 px-1 text-right">Phút</th>
                   <th className="w-20 px-1 text-right">Sân (đ)</th>
                   <th className="w-20 px-1 text-right">Cầu (đ)</th>
+                  <th className="w-24 px-1 text-right" title="Phần sân + phần cầu, làm tròn lên 1.000đ">Sân + cầu</th>
                   <th className="w-36 px-1">Thêm (đ)</th>
                   <th className="w-24 px-1 text-right">Tổng (đ)</th>
                 </tr>
@@ -414,8 +469,9 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
                         )}
                       </td>
                       <td className="px-1 text-right tabular-nums text-slate-500">{line.minutes}</td>
-                      <td className="px-1 text-right tabular-nums">{fmtVnd(line.court)}</td>
-                      <td className="px-1 text-right tabular-nums">{fmtVnd(line.shuttle)}</td>
+                      <td className="px-1 text-right text-xs tabular-nums text-slate-500">{fmtVnd(line.court)}</td>
+                      <td className="px-1 text-right text-xs tabular-nums text-slate-500">{fmtVnd(line.shuttle)}</td>
+                      <td className="px-1 text-right tabular-nums text-slate-900">{fmtVnd(line.base)}</td>
                       <td className="px-1">
                         <input
                           value={extras[m.id] ?? ""}
@@ -467,11 +523,16 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
             onClick={() => setPreview(false)}
           >
             <p className="rounded-2xl bg-white px-4 py-2 text-center text-sm font-bold text-slate-800 shadow">
-              👆 Nhấn giữ vào ảnh → chọn <b>“Lưu vào Ảnh”</b> hoặc <b>“Tải hình ảnh xuống”</b>
+              👆 Nhấn giữ vào ảnh → chọn <b>“Lưu vào Ảnh”</b> / <b>“Lưu hình ảnh”</b>
+              {platform() === "inapp" && (
+                <span className="mt-1 block text-xs font-semibold text-slate-500">
+                  Không lưu được? Bấm ⋯ ở góc trên → <b>Mở bằng trình duyệt</b> (Safari / Chrome) rồi bấm Lưu ảnh bill.
+                </span>
+              )}
             </p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={image.url}
+              src={previewSrc ?? image.url}
               alt="Bảng tính tiền"
               className="w-full max-w-md rounded-2xl shadow-2xl"
               style={{ WebkitTouchCallout: "default", WebkitUserSelect: "auto", userSelect: "auto" }}

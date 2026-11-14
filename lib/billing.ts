@@ -25,11 +25,11 @@ export interface BillLine {
   /** Chưa xác nhận rời sân: tạm tính tới giờ kết thúc buổi. */
   open: boolean;
   minutes: number;
-  /** Phần tiền sân (đã làm tròn). */
+  /** Phần tiền sân (chưa làm tròn, tới đồng) — chỉ để xem chi tiết. */
   court: number;
-  /** Phần tiền cầu (đã làm tròn). */
+  /** Phần tiền cầu (chưa làm tròn, tới đồng) — chỉ để xem chi tiết. */
   shuttle: number;
-  /** Tiền sân + cầu của người này (đồng). */
+  /** Số phải trả cho sân + cầu = (phần sân + phần cầu) làm tròn lên 1.000đ một lần. */
   base: number;
   /** Các khoản thêm riêng (đồng): nợ cũ, nước… */
   extras: number[];
@@ -79,7 +79,7 @@ export function formatExtras(text: string): string {
     .join("");
 }
 
-/** Mỗi người luôn được làm tròn LÊN tới 1.000đ (thu dư vài nghìn còn hơn thiếu). */
+/** Tổng sân + cầu của mỗi người làm tròn LÊN tới 1.000đ (thu dư vài nghìn còn hơn thiếu). */
 function roundUp1k(amount: number) {
   // trừ sai số dấu phẩy động để 44.0000001k không bị làm tròn lên 45k
   return Math.ceil(amount / 1000 - 1e-6) * 1000;
@@ -119,9 +119,12 @@ export function computeBill(
   const lines: BillLine[] = present.map((p) => {
     const byTime = timeUnits > 0 ? (p.weight * p.minutes) / timeUnits : 0;
     const byHead = headUnits > 0 ? p.weight / headUnits : 0;
-    const court = roundUp1k(settings.courtFee * byTime);
-    const shuttle = roundUp1k(settings.shuttleFee * (settings.shuttleBy === "time" ? byTime : byHead));
-    const base = court + shuttle;
+    // cộng phần sân + phần cầu rồi mới làm tròn một lần — tránh dư hai lần do làm tròn từng khoản
+    const courtRaw = settings.courtFee * byTime;
+    const shuttleRaw = settings.shuttleFee * (settings.shuttleBy === "time" ? byTime : byHead);
+    const court = Math.round(courtRaw);
+    const shuttle = Math.round(shuttleRaw);
+    const base = roundUp1k(courtRaw + shuttleRaw);
     const extra = parseExtras(extras[p.member.id]);
     return {
       member: p.member,
@@ -161,12 +164,10 @@ export function fmtK(amount: number) {
 /** 600000 → "600.000". */
 export const fmtVnd = (amount: number) => Math.round(amount).toLocaleString("vi-VN");
 
-/** Một dòng giống mẫu: "5. Núi (19h - 21h30) 49k + 40k + 20k = 109k" (sân + cầu + khoản thêm = tổng). */
+/** Một dòng giống mẫu: "5. Núi (19h - 21h30) 29k + 40k = 69k" (sân + cầu, khoản thêm = tổng). */
 export function billLineText(line: BillLine, index: number) {
-  const parts = [line.court, line.shuttle].filter((v) => v > 0);
-  if (parts.length === 0) parts.push(0);
-  const head = `${index + 1}. ${line.member.name} (${fmtHour(line.from)} - ${fmtHour(line.to)}) ${parts.map(fmtK).join(" + ")}`;
+  const head = `${index + 1}. ${line.member.name} (${fmtHour(line.from)} - ${fmtHour(line.to)}) ${fmtK(line.base)}`;
+  if (line.extras.length === 0) return head;
   const extras = line.extras.map((e) => (e < 0 ? ` - ${fmtK(-e)}` : ` + ${fmtK(e)}`)).join("");
-  if (parts.length === 1 && line.extras.length === 0) return head;
   return `${head}${extras} = ${fmtK(line.total)}`;
 }
