@@ -296,7 +296,8 @@ export default function Scene({ overlay, fitKey, insets, compact }: SceneProps) 
       onPointerMissed={() => clearSelection()}
     >
 
-      <fog attach="fog" args={[night ? "#13284d" : "#cfeeff", night ? 90 : 120, night ? 320 : 380]} />
+      {/* trong nhà thi đấu: ban ngày sáng sủa, ban đêm tối ấm */}
+      <fog attach="fog" args={[night ? "#111827" : "#eef2f7", night ? 140 : 180, night ? 420 : 520]} />
 
       {/* ban đêm: trời tối, đèn pha sân sáng ấm từ trên xuống */}
       <ambientLight intensity={night ? 0.32 : 1.15} color={night ? "#b9c8ff" : "#ffffff"} />

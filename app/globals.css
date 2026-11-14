@@ -37,7 +37,7 @@ html,
 body {
   height: 100%;
   overflow: hidden;
-  background: #8fd3ff;
+  background: #eef2f7;
   /* điện thoại: không kéo-làm-mới / nảy trang khi vuốt trên sân */
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
