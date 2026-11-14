@@ -1,0 +1,218 @@
+@import "tailwindcss";
+
+/* compact: giao diện thu gọn cho điện thoại — bật bằng data-compact trên <main> (xem Game.tsx) */
+@custom-variant compact (&:where([data-compact="true"], [data-compact="true"] *));
+
+@theme {
+  --font-sans: var(--font-be-vietnam), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-baloo), var(--font-be-vietnam), ui-sans-serif, system-ui, sans-serif;
+  --animate-toast: toast-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-pop: pop-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.85);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background: #8fd3ff;
+}
+
+@layer components {
+  /* bảng HUD: nền trắng, bo tròn lớn, viền trắng dày kiểu game */
+  .panel {
+    @apply rounded-3xl border-[3px] border-white bg-white/90 shadow-xl shadow-sky-900/20 backdrop-blur-md;
+  }
+  /* nút "nổi" có đổ bóng đáy, nhấn thì lún xuống */
+  .btn {
+    @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-2xl px-3.5 py-2 text-sm font-extrabold shadow-[0_3px_0_0_rgb(0_0_0/0.18)] transition active:translate-y-[2px] active:shadow-[0_1px_0_0_rgb(0_0_0/0.18)] disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply bg-orange-500 text-white hover:bg-orange-400;
+  }
+  .btn-ghost {
+    @apply bg-slate-100 text-slate-700 hover:bg-slate-200;
+  }
+  .btn-danger {
+    @apply bg-rose-500 text-white hover:bg-rose-400;
+  }
+  .btn-amber {
+    @apply bg-yellow-400 text-yellow-950 hover:bg-yellow-300;
+  }
+  .btn-sky {
+    @apply bg-sky-500 text-white hover:bg-sky-400;
+  }
+  .btn-pink {
+    @apply bg-pink-500 text-white hover:bg-pink-400;
+  }
+  .btn-green {
+    @apply bg-emerald-500 text-white hover:bg-emerald-400;
+  }
+}
+
+/* camera ở xa: nhãn nhân vật chỉ còn tên (màu trình độ vẫn xem được ở vòng dưới chân) */
+[data-zoom="far"] .player-level {
+  display: none;
+}
+
+/* biểu cảm bực / giận dữ: lắc lư phía trên nhãn tên */
+@keyframes anger-shake {
+  0%,
+  100% {
+    transform: translateX(-50%) rotate(-8deg) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) rotate(8deg) scale(1.12);
+  }
+}
+@keyframes anger-wobble {
+  0%,
+  100% {
+    transform: rotate(-10deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+}
+.anger-emote {
+  transform: translateX(-50%);
+  animation: anger-shake 0.9s ease-in-out infinite;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.25));
+}
+.anger-emote-inline {
+  display: inline-block;
+  animation: anger-wobble 0.9s ease-in-out infinite;
+}
+.anger-emote-2 {
+  animation-duration: 0.28s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anger-emote,
+  .anger-emote-inline {
+    animation: none;
+  }
+}
+
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(15 23 42 / 0.25) transparent;
+}
+
+/* sọc chéo thể thao cho các dải tiêu đề */
+/* vẽ bằng ::before để không ghi đè nền gradient của chính phần tử */
+.sport-stripes {
+  position: relative;
+  isolation: isolate;
+}
+.sport-stripes::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(115deg, rgb(255 255 255 / 0.18) 0 10px, transparent 10px 22px);
+}
+
+/* ===================== GIAO DIỆN TỐI =====================
+   Bật bằng data-theme="dark" trên <html> (Game.tsx).
+   Tailwind v4 dùng biến màu nên chỉ cần đảo thang slate và nhuộm tối các nền nhạt. */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-slate-50: oklch(24% 0.035 262);
+  --color-slate-100: oklch(29% 0.04 260);
+  --color-slate-200: oklch(36% 0.042 258);
+  --color-slate-300: oklch(46% 0.042 257);
+  --color-slate-400: oklch(62% 0.04 257);
+  --color-slate-500: oklch(70% 0.035 256);
+  --color-slate-600: oklch(78% 0.025 255);
+  --color-slate-700: oklch(86% 0.02 253);
+  --color-slate-800: oklch(92% 0.013 255);
+  --color-slate-900: oklch(96.5% 0.007 248);
+  --color-slate-950: oklch(98.4% 0.003 248);
+
+  --color-orange-50: color-mix(in oklab, #f97316 16%, #111827);
+  --color-orange-100: color-mix(in oklab, #f97316 26%, #111827);
+  --color-pink-50: color-mix(in oklab, #ec4899 16%, #111827);
+  --color-pink-100: color-mix(in oklab, #ec4899 26%, #111827);
+  --color-emerald-50: color-mix(in oklab, #10b981 16%, #111827);
+  --color-emerald-100: color-mix(in oklab, #10b981 26%, #111827);
+  --color-sky-50: color-mix(in oklab, #0ea5e9 16%, #111827);
+  --color-sky-100: color-mix(in oklab, #0ea5e9 26%, #111827);
+  --color-amber-50: color-mix(in oklab, #f59e0b 16%, #111827);
+  --color-amber-100: color-mix(in oklab, #f59e0b 26%, #111827);
+  --color-yellow-50: color-mix(in oklab, #eab308 16%, #111827);
+  --color-yellow-100: color-mix(in oklab, #eab308 26%, #111827);
+  --color-rose-50: color-mix(in oklab, #f43f5e 16%, #111827);
+  --color-rose-100: color-mix(in oklab, #f43f5e 26%, #111827);
+  /* chữ đậm trên nền tối cần sáng hơn */
+  --color-orange-600: oklch(75% 0.17 55);
+  --color-pink-600: oklch(75% 0.17 355);
+  --color-emerald-600: oklch(76% 0.15 163);
+  --color-sky-600: oklch(76% 0.13 237);
+  --color-rose-600: oklch(72% 0.18 15);
+  --color-amber-700: oklch(80% 0.16 75);
+}
+html[data-theme="dark"],
+html[data-theme="dark"] body {
+  background: #0b1220;
+}
+[data-theme="dark"] .game-bg {
+  background-image: linear-gradient(to bottom, #0b1736, #13284d 45%, #1d3a5c);
+  color: var(--color-slate-800);
+}
+[data-theme="dark"] .panel {
+  background-color: rgb(17 24 39 / 0.9);
+  border-color: rgb(51 65 85);
+  --tw-shadow-color: rgb(0 0 0 / 0.5);
+}
+[data-theme="dark"] .bg-white,
+[data-theme="dark"] .hover\:bg-white:hover {
+  background-color: rgb(30 41 59);
+}
+[data-theme="dark"] .bg-white\/80,
+[data-theme="dark"] .bg-white\/90,
+[data-theme="dark"] .bg-white\/95 {
+  background-color: rgb(17 24 39 / 0.9);
+}
+[data-theme="dark"] .border-white {
+  border-color: rgb(51 65 85);
+}
+[data-theme="dark"] .btn-ghost {
+  background-color: rgb(51 65 85);
+  color: rgb(226 232 240);
+}
+[data-theme="dark"] .btn-ghost:hover {
+  background-color: rgb(71 85 105);
+}
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  color: rgb(241 245 249);
+}
+[data-theme="dark"] .thin-scroll {
+  scrollbar-color: rgb(148 163 184 / 0.35) transparent;
+}
+[data-theme="dark"] .clock-pill {
+  border-color: rgb(71 85 105);
+}
