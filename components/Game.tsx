@@ -7,6 +7,7 @@ import { GENDER_COLOR, vibeInfo } from "@/lib/types";
 import Dialogs from "./Dialogs";
 import MemberPanel from "./MemberPanel";
 import Scene, { type HudInsets } from "./scene/Scene";
+import { SharedImportPrompt } from "./ShareDialog";
 import StatsPanel from "./StatsPanel";
 
 export const BRAND = "LINH CÁO BADMINTON";
@@ -136,6 +137,9 @@ function TopBar({ barRef, onOpenStats, onFit }: { barRef: RefObject<HTMLElement 
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
+        <button className="btn btn-ghost" onClick={() => openDialog({ kind: "share" })} title="Gửi dữ liệu sang máy khác bằng link" aria-label="Chia sẻ">
+          🔗<span className="max-lg:hidden"> Chia sẻ</span>
+        </button>
         <button className="btn btn-ghost" onClick={() => openDialog({ kind: "cleanup" })} title="Xóa nhanh thành viên / sân" aria-label="Dọn dẹp">
           🗑️<span className="max-lg:hidden"> Dọn dẹp</span>
         </button>
@@ -364,6 +368,7 @@ function MoreMenu({ onClose, onOpenStats, onFit }: { onClose: () => void; onOpen
       hint: "Đổi màu nền",
       run: toggleTheme,
     },
+    { icon: "🔗", label: "Chia sẻ", hint: "Gửi dữ liệu sang máy khác bằng link", run: () => openDialog({ kind: "share" }), tone: "text-sky-700" },
     { icon: "🗑️", label: "Dọn dẹp", hint: "Xóa nhanh thành viên / sân", run: () => openDialog({ kind: "cleanup" }), tone: "text-rose-600" },
   ];
 
@@ -854,6 +859,7 @@ export default function Game() {
       {moreOpen && <MoreMenu onClose={() => setMoreOpen(false)} onOpenStats={() => setStatsOpen(true)} onFit={fit} />}
       <StatsPanel open={statsOpen} onClose={() => setStatsOpen(false)} />
       <Dialogs />
+      <SharedImportPrompt />
     </main>
   );
 }

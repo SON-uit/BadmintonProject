@@ -25,6 +25,7 @@ import {
 import AttendanceDialog from "./AttendanceDialog";
 import BillingDialog from "./BillingDialog";
 import { Modal, SectionTitle } from "./Modal";
+import { ShareDialog } from "./ShareDialog";
 
 const TYPES: DoublesType[] = ["men", "women", "mixed"];
 
@@ -867,5 +868,7 @@ export default function Dialogs() {
       return <BillingDialog onClose={closeDialog} />;
     case "attendance":
       return <AttendanceDialog onClose={closeDialog} />;
+    case "share":
+      return <ShareDialog onClose={closeDialog} />;
   }
 }

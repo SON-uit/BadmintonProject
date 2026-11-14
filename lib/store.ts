@@ -5,6 +5,7 @@ import { persist } from "zustand/middleware";
 import { DEFAULT_BILL, type BillSettings } from "./billing";
 import { resetDrag } from "./drag";
 import { SLOT_LOCAL } from "./layout";
+import type { SharedData } from "./share";
 import {
   arrangeTeams,
   byPriority,
@@ -42,7 +43,8 @@ export type Dialog =
   | { kind: "roster"; editId: string | null }
   | { kind: "cleanup" }
   | { kind: "billing" }
-  | { kind: "attendance" };
+  | { kind: "attendance" }
+  | { kind: "share" };
 
 export interface MemberInput {
   name: string;
@@ -121,6 +123,8 @@ interface GameState {
   startMatch: (courtId: string) => void;
   finishMatch: (courtId: string, winner: Team) => void;
   clearTodayHistory: () => void;
+  /** Thay toàn bộ dữ liệu bằng bản được chia sẻ từ máy khác (link #s=…). */
+  importShared: (data: SharedData) => void;
 
   setPortrait: (portrait: boolean) => void;
   openDialog: (dialog: Exclude<Dialog, null>) => void;
@@ -688,6 +692,11 @@ export const useGame = create<GameState>()(
       clearTodayHistory: () => {
         const today = new Set(matchesOfDay(get().matches).map((m) => m.id));
         set((s) => ({ matches: s.matches.filter((m) => !today.has(m.id)) }));
+      },
+
+      importShared: (data) => {
+        resetDrag();
+        set({ ...data, selectedIds: [], draggingId: null, hoverCourtId: null, dialog: null });
       },
 
       setPortrait: (portrait) => set({ portrait }),
