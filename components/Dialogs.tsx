@@ -1,7 +1,7 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState, type FormEvent, type TextareaHTMLAttributes } from "react";
-import { fmtClock, fmtElapsed } from "@/lib/logic";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type TextareaHTMLAttributes } from "react";
+import { fmtClock, fmtElapsed, pickForMatch } from "@/lib/logic";
 import { useGame, type MemberInput } from "@/lib/store";
 import {
   GENDER_COLOR,
@@ -63,8 +63,49 @@ function ArrangeDialog({ initialCourtId, onClose }: { initialCourtId: string | n
     };
   }, [members, queue]);
 
+  // Tính trước: với sân + lựa chọn "xếp lại" hiện tại, thể loại / tính chất nào gom đủ người được.
+  // Lựa chọn không xếp được sẽ bị khóa (kèm lý do) thay vì để bấm rồi mới báo lỗi.
+  const feasible = useMemo(() => {
+    const byId = new Map(members.map((m) => [m.id, m]));
+    const inCourtIds = court ? court.slots.filter((id): id is string => !!id) : [];
+    const doReplace = replace && inCourtIds.length > 0;
+    const existing = doReplace ? [] : inCourtIds.map((id) => byId.get(id)).filter((m): m is Member => !!m);
+    const pool = (doReplace ? [...queue, ...inCourtIds] : queue)
+      .map((id) => byId.get(id))
+      .filter((m): m is Member => !!m)
+      .map((member) => ({ member, played: 0, waitedMs: 0 }));
+    const map = {} as Record<DoublesType, Record<Vibe, { ok: boolean; reason: string }>>;
+    for (const t of TYPES) {
+      map[t] = {} as Record<Vibe, { ok: boolean; reason: string }>;
+      for (const v of VIBES) {
+        const res = pickForMatch(pool, existing, t, v.value);
+        map[t][v.value] = res.ok ? { ok: true, reason: "" } : { ok: false, reason: res.reason };
+      }
+    }
+    return map;
+  }, [members, queue, court, replace]);
+  const typeOk = (t: DoublesType) => VIBES.some((v) => feasible[t][v.value].ok);
+  const canSubmit = !!court && feasible[type][vibe].ok;
+
+  // lựa chọn đang chọn không còn xếp được (đổi sân, tích xếp lại, sảnh chờ thay đổi): tự chuyển sang lựa chọn gần nhất xếp được
+  useEffect(() => {
+    if (feasible[type][vibe].ok) return;
+    const sameType = VIBES.find((v) => feasible[type][v.value].ok);
+    if (sameType) {
+      setVibe(sameType.value);
+      return;
+    }
+    const otherType = TYPES.find((t) => typeOk(t));
+    if (otherType) {
+      setType(otherType);
+      const v = feasible[otherType][vibe].ok ? vibe : VIBES.find((x) => feasible[otherType][x.value].ok)!.value;
+      setVibe(v);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feasible]);
+
   const submit = () => {
-    if (!court) return;
+    if (!court || !canSubmit) return;
     if (arrangeMatch(court.id, type, vibe, replace && inCourt > 0)) onClose();
   };
 
@@ -79,7 +120,7 @@ function ArrangeDialog({ initialCourtId, onClose }: { initialCourtId: string | n
           <button className="btn btn-ghost" onClick={onClose}>
             Hủy
           </button>
-          <button className="btn btn-primary" onClick={submit} disabled={!court}>
+          <button className="btn btn-primary" onClick={submit} disabled={!canSubmit}>
             🎲 Xếp vào {court?.name ?? "sân"}
           </button>
         </>
@@ -132,44 +173,69 @@ function ArrangeDialog({ initialCourtId, onClose }: { initialCourtId: string | n
 
       <section>
         <SectionTitle step={2}>Thể loại</SectionTitle>
+        {court && !TYPES.some(typeOk) && (
+          <p className="mb-2 rounded-2xl border-2 border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-700">
+            ⚠️ Sảnh chờ chưa đủ người để xếp {court.name} — điểm danh thêm người hoặc chờ trận khác kết thúc.
+          </p>
+        )}
         <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Thể loại">
-          {TYPES.map((t) => (
-            <button
-              key={t}
-              role="radio"
-              aria-checked={type === t}
-              onClick={() => setType(t)}
-              className={`cursor-pointer rounded-2xl border-2 px-2 py-2.5 text-center transition ${
-                type === t
-                  ? "border-sky-500 bg-sky-500 text-white shadow"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-sky-300"
-              }`}
-            >
-              <div className="text-lg leading-none">{MATCH_ICON[t]}</div>
-              <div className="mt-1 text-sm font-extrabold">{MATCH_LABEL[t]}</div>
-            </button>
-          ))}
+          {TYPES.map((t) => {
+            const ok = typeOk(t);
+            return (
+              <button
+                key={t}
+                role="radio"
+                aria-checked={type === t}
+                disabled={!ok}
+                title={ok ? undefined : "Sảnh chờ không đủ người cho thể loại này"}
+                onClick={() => {
+                  setType(t);
+                  // giữ tính chất đang chọn nếu xếp được, không thì chọn tính chất đầu tiên xếp được
+                  if (!feasible[t][vibe].ok) setVibe(VIBES.find((v) => feasible[t][v.value].ok)!.value);
+                }}
+                className={`rounded-2xl border-2 px-2 py-2.5 text-center transition ${
+                  !ok
+                    ? "cursor-not-allowed border-dashed border-slate-200 bg-slate-50 text-slate-400 opacity-60"
+                    : type === t
+                      ? "cursor-pointer border-sky-500 bg-sky-500 text-white shadow"
+                      : "cursor-pointer border-slate-200 bg-white text-slate-700 hover:border-sky-300"
+                }`}
+              >
+                <div className="text-lg leading-none">{MATCH_ICON[t]}</div>
+                <div className="mt-1 text-sm font-extrabold">{MATCH_LABEL[t]}</div>
+                {!ok && <div className="mt-0.5 text-[10px] font-bold">không đủ người</div>}
+              </button>
+            );
+          })}
         </div>
       </section>
 
       <section>
         <SectionTitle step={3}>Tính chất trận</SectionTitle>
         <div className="space-y-2" role="radiogroup" aria-label="Tính chất trận">
-          {VIBES.map((v) => (
+          {VIBES.map((v) => {
+            const f = feasible[type][v.value];
+            return (
             <button
               key={v.value}
               role="radio"
               aria-checked={vibe === v.value}
               aria-label={v.name}
+              disabled={!f.ok}
               onClick={() => setVibe(v.value)}
-              className={`flex w-full cursor-pointer items-center gap-3 rounded-2xl border-2 px-3 py-2 text-left transition ${
-                vibe === v.value ? "border-pink-500 bg-pink-50 shadow" : "border-slate-200 bg-white hover:border-pink-300"
+              className={`flex w-full items-center gap-3 rounded-2xl border-2 px-3 py-2 text-left transition ${
+                !f.ok
+                  ? "cursor-not-allowed border-dashed border-slate-200 bg-slate-50 opacity-55"
+                  : vibe === v.value
+                    ? "cursor-pointer border-pink-500 bg-pink-50 shadow"
+                    : "cursor-pointer border-slate-200 bg-white hover:border-pink-300"
               }`}
             >
-              <span className="text-2xl leading-none">{v.emoji}</span>
+              <span className={`text-2xl leading-none ${f.ok ? "" : "grayscale"}`}>{v.emoji}</span>
               <span className="min-w-0 flex-1">
                 <span className="font-display block text-base font-extrabold leading-tight text-slate-900">{v.name}</span>
                 <span className="block text-xs font-medium text-slate-500">{v.hint}</span>
+                {!f.ok && <span className="mt-0.5 block text-[11px] font-bold text-amber-700">🔒 Chưa xếp được: {f.reason}</span>}
               </span>
               <span
                 className={`grid size-5 shrink-0 place-items-center rounded-full border-2 text-[11px] font-black ${
@@ -179,7 +245,8 @@ function ArrangeDialog({ initialCourtId, onClose }: { initialCourtId: string | n
                 ✓
               </span>
             </button>
-          ))}
+            );
+          })}
         </div>
       </section>
     </Modal>

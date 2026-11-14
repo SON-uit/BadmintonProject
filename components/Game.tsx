@@ -611,8 +611,9 @@ function Toasts() {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`animate-toast rounded-2xl border-[3px] border-white px-4 py-2 text-center text-sm font-bold text-white shadow-xl ${
-            t.kind === "error" ? "bg-rose-500" : t.kind === "success" ? "bg-emerald-500" : "bg-sky-500"
+          className={`animate-toast rounded-2xl border-[3px] border-white px-4 py-2 text-center text-sm font-bold shadow-xl ${
+            // cảnh báo: vàng (không dùng đỏ cho đỡ gắt)
+            t.kind === "error" ? "bg-amber-400 text-amber-950" : t.kind === "success" ? "bg-emerald-500 text-white" : "bg-sky-500 text-white"
           }`}
         >
           {t.kind === "error" ? "⚠️ " : t.kind === "success" ? "🎉 " : "💬 "}
