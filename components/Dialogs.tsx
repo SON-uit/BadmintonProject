@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type FormEvent, type TextareaHTMLAttributes } from "react";
 import { fmtClock, fmtElapsed } from "@/lib/logic";
 import { useGame, type MemberInput } from "@/lib/store";
 import {
@@ -253,6 +253,35 @@ function FinishDialog({ courtId, onClose }: { courtId: string; onClose: () => vo
 /* ------------------------------------------------------------------ */
 /* Quản lý thành viên: lưới gọn để thấy cả 25 người không cần cuộn       */
 /* ------------------------------------------------------------------ */
+
+/** Ô nhập nhiều dòng tự giãn theo nội dung (tối đa ~40% chiều cao màn hình, quá thì cuộn). */
+function AutoGrowTextarea({
+  value,
+  onChange,
+  className,
+  ...rest
+}: { value: string; onChange: (v: string) => void; className?: string } & Omit<
+  TextareaHTMLAttributes<HTMLTextAreaElement>,
+  "value" | "onChange"
+>) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight + 4, window.innerHeight * 0.4)}px`;
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      rows={2}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`resize-none overflow-y-auto ${className ?? ""}`}
+      {...rest}
+    />
+  );
+}
 
 function LevelPicker({ value, onChange }: { value: Level; onChange: (level: Level) => void }) {
   return (
@@ -565,10 +594,10 @@ function RosterDialog({ initialEditId, onClose }: { initialEditId: string | null
             {editing ? `✏️ Sửa: ${editing.name}` : "➕ Thêm"}
           </span>
           {bulk && !editing ? (
-            <textarea
+            <AutoGrowTextarea
+              autoFocus
               value={bulkText}
-              onChange={(e) => setBulkText(e.target.value)}
-              rows={2}
+              onChange={setBulkText}
               placeholder="Dán nhiều tên: mỗi dòng một tên, hoặc cách nhau bằng dấu phẩy"
               aria-label="Danh sách tên"
               className="min-w-0 flex-1 basis-60 select-text rounded-2xl border-2 border-slate-200 bg-white px-3 py-1.5 text-base font-semibold text-slate-900 outline-none placeholder:font-medium placeholder:text-slate-400 focus:border-sky-400 sm:text-sm"
