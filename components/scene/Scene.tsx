@@ -148,29 +148,64 @@ function QueueZone({
   overlay: RefObject<HTMLElement>;
 }) {
   const dragging = useGame((s) => s.draggingId !== null);
+  // hàng rào phân cách sảnh chờ với dãy sân: phía sau (và phía trước nếu sảnh kẹp giữa hai dãy sân)
+  const fenceZ = layout.depth / 2 + (portrait ? 2.2 : 1.4);
+  const fences = layout.between ? [-fenceZ, fenceZ] : [-fenceZ];
   return (
     <group position={[0, 0, layout.centerZ]}>
+      {/* sảnh chờ là một bục riêng, viền trắng dày, nổi hẳn lên khỏi sàn đấu */}
       <mesh position-y={-0.05}>
-        <boxGeometry args={[layout.width + 0.5, 0.14, layout.depth + 0.5]} />
+        <boxGeometry args={[layout.width + 1.2, 0.14, layout.depth + 1.2]} />
         <meshBasicMaterial color={dragging ? "#ffe14d" : "#ffffff"} />
       </mesh>
-      <mesh position-y={-0.02} receiveShadow>
-        <boxGeometry args={[layout.width, 0.14, layout.depth]} />
-        <meshToonMaterial color="#ff8a3d" />
+      <mesh position-y={-0.045} receiveShadow>
+        <boxGeometry args={[layout.width + 0.6, 0.14, layout.depth + 0.6]} />
+        <meshToonMaterial color="#8b5cf6" />
       </mesh>
+      <mesh position-y={-0.04} receiveShadow>
+        <boxGeometry args={[layout.width, 0.14, layout.depth]} />
+        <meshToonMaterial color="#a78bfa" />
+      </mesh>
+      {fences.map((fz) => (
+        <Fence key={fz} z={fz} width={layout.width + 1.2} />
+      ))}
       <Html
         portal={overlay}
         // màn hình dọc: đặt biển ở mép trước để không tràn ra ngoài màn hình
-        position={portrait ? [0, 0.2, layout.depth / 2 + 1] : [-layout.width / 2 - 0.6, 0.3, 0]}
+        position={portrait ? [0, 0.2, layout.depth / 2 + 1.2] : [-layout.width / 2 - 1, 0.3, 0]}
         center
         zIndexRange={[20, 0]}
         style={{ pointerEvents: "none" }}
       >
-        <div className="queue-sign font-display -rotate-6 whitespace-nowrap rounded-xl border-2 border-white bg-orange-500 px-2.5 py-1 text-center text-xs font-extrabold leading-tight text-white shadow-lg">
-          HÀNG CHỜ
-          <div className="text-[11px] font-bold text-orange-100">{count} người</div>
+        <div className="queue-sign font-display whitespace-nowrap rounded-xl border-2 border-white bg-violet-600 px-3 py-1 text-center text-sm font-extrabold leading-tight text-white shadow-lg">
+          🪑 SẢNH CHỜ
+          <div className="text-[11px] font-bold text-violet-100">{count} người đang chờ</div>
         </div>
       </Html>
+    </group>
+  );
+}
+
+/** Hàng rào thấp kiểu dây chắn (cột + dây sọc) — ranh giới giữa sảnh chờ và khu sân. */
+function Fence({ z, width }: { z: number; width: number }) {
+  const posts = Math.max(2, Math.round(width / 3) + 1);
+  const step = width / (posts - 1);
+  return (
+    <group position={[0, 0, z]}>
+      {Array.from({ length: posts }, (_, i) => (
+        <mesh key={i} position={[-width / 2 + i * step, 0.45, 0]} castShadow>
+          <cylinderGeometry args={[0.09, 0.12, 0.9, 8]} />
+          <meshToonMaterial color="#f8fafc" />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.78, 0]}>
+        <boxGeometry args={[width, 0.12, 0.06]} />
+        <meshToonMaterial color="#ef4444" />
+      </mesh>
+      <mesh position={[0, 0.5, 0]}>
+        <boxGeometry args={[width, 0.08, 0.05]} />
+        <meshToonMaterial color="#facc15" />
+      </mesh>
     </group>
   );
 }

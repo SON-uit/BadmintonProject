@@ -161,6 +161,7 @@ function Player3D({ member, x, z, facing, mode, anger, waitMinutes, overlay }: P
   const legR = useRef<THREE.Group>(null);
   const pulse = useRef<THREE.Mesh>(null);
   const steam = useRef<THREE.Group>(null);
+  const hitbox = useRef<THREE.Mesh>(null);
   const placed = useRef(false);
   const [hovered, setHovered] = useState(false);
   const isDragging = useGame((s) => s.draggingId === member.id);
@@ -210,6 +211,15 @@ function Player3D({ member, x, z, facing, mode, anger, waitMinutes, overlay }: P
     }
     // đang chạy thì quay mặt theo hướng chạy
     g.rotation.y = lerpAngle(g.rotation.y, walking ? Math.atan2(dx, dz) : facing, 1 - Math.exp(-10 * delta));
+
+    // camera ở xa: phóng to vùng chạm để ngón tay vẫn bắt được người (tối thiểu ~26px bán kính)
+    if (hitbox.current) {
+      const cam = state.camera as THREE.PerspectiveCamera;
+      const dist = cam.position.distanceTo(g.position);
+      const pxPerMeter = state.size.height / (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) * dist);
+      const k = THREE.MathUtils.clamp(26 / (0.85 * pxPerMeter), 1, 1.9);
+      hitbox.current.scale.set(k, 1, k);
+    }
 
     const t = state.clock.elapsedTime + phase;
     const playing = mode === "playing";
@@ -286,7 +296,7 @@ function Player3D({ member, x, z, facing, mode, anger, waitMinutes, overlay }: P
       onPointerOut={() => setHovered(false)}
     >
       {/* vùng bấm vô hình, rộng hơn thân người để dễ chạm bằng ngón tay */}
-      <mesh visible={false} position-y={1.05}>
+      <mesh ref={hitbox} visible={false} position-y={1.05}>
         <cylinderGeometry args={[0.85, 0.85, 2.3, 8]} />
       </mesh>
 
@@ -393,7 +403,15 @@ function Player3D({ member, x, z, facing, mode, anger, waitMinutes, overlay }: P
         style={{ pointerEvents: "none" }}
       >
         <div
-          className={`relative flex items-center gap-1 whitespace-nowrap rounded-full border-2 px-1.5 py-px text-[11px] font-bold leading-tight shadow-md ${
+          // nhãn tên cũng là tay cầm: chạm để chọn, kéo để thả vào sân (luôn đủ to dù camera ở xa)
+          onPointerDown={(e) => {
+            if (locked || e.button !== 0) return;
+            if (e.pointerType === "mouse") e.preventDefault();
+            e.stopPropagation();
+            startDrag(member.id);
+          }}
+          style={{ pointerEvents: locked ? "none" : "auto", touchAction: "none" }}
+          className={`relative flex items-center ${locked ? "" : "cursor-grab"} gap-1 whitespace-nowrap rounded-full border-2 px-1.5 py-px text-[11px] font-bold leading-tight shadow-md compact:px-2 compact:py-0.5 compact:text-xs ${
             isDragging
               ? "border-amber-400 bg-amber-300 text-amber-950"
               : selected

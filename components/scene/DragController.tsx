@@ -8,25 +8,35 @@ import { courtCenter, courtIndexAt } from "@/lib/layout";
 import { useGame } from "@/lib/store";
 
 const DRAG_THRESHOLD_PX = 5;
+/** Thả lệch ra ngoài mép sân trong khoảng này (mét) vẫn tính là thả vào sân gần nhất. */
+const DROP_SLACK = 1.6;
 
 /**
- * Kéo-thả thành viên: nghe pointer trên window (nên kéo được cả từ danh sách HUD lẫn nhân vật 3D),
+ * Kéo-thả thành viên: nghe pointer trên window (nên kéo được cả từ danh sách HUD, nhãn tên lẫn nhân vật 3D),
  * chiếu con trỏ xuống mặt sàn y = 0, khi thả thì xác định sân/ô gần nhất.
  */
 export default function DragController() {
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
   const controls = useThree((s) => s.controls) as unknown as { enabled: boolean } | null;
-  const draggingId = useGame((s) => s.draggingId);
 
-  // Khóa xoay camera trong lúc đang kéo người.
+  // Khóa camera NGAY khi bắt đầu kéo (đồng bộ, không đợi React render) — tránh việc
+  // ngón tay kéo người lại thành kéo / xoay sàn.
   useEffect(() => {
-    if (controls) controls.enabled = !draggingId;
-    document.body.style.cursor = draggingId ? "grabbing" : "";
+    const apply = (id: string | null) => {
+      if (controls) controls.enabled = !id;
+      document.body.style.cursor = id ? "grabbing" : "";
+    };
+    apply(useGame.getState().draggingId);
+    const unsub = useGame.subscribe((s, prev) => {
+      if (s.draggingId !== prev.draggingId) apply(s.draggingId);
+    });
     return () => {
+      unsub();
+      if (controls) controls.enabled = true;
       document.body.style.cursor = "";
     };
-  }, [draggingId, controls]);
+  }, [controls]);
 
   useEffect(() => {
     const raycaster = new THREE.Raycaster();
@@ -53,7 +63,7 @@ export default function DragController() {
       if (!p) return;
       drag.pos.copy(p);
       drag.moved = true;
-      const index = courtIndexAt(p.x, p.z, s.courts.length, s.portrait);
+      const index = courtIndexAt(p.x, p.z, s.courts.length, s.portrait, DROP_SLACK);
       const hoverId = index >= 0 ? s.courts[index].id : null;
       if (hoverId !== s.hoverCourtId) s.setHoverCourt(hoverId);
     };
@@ -66,7 +76,7 @@ export default function DragController() {
       // bấm mà không kéo = chọn / bỏ chọn người đó
       if (!drag.moved) s.toggleSelect(memberId);
       if (p) {
-        const index = courtIndexAt(p.x, p.z, s.courts.length, s.portrait);
+        const index = courtIndexAt(p.x, p.z, s.courts.length, s.portrait, DROP_SLACK);
         if (index >= 0) {
           const { x: cx, z: cz } = courtCenter(index, s.courts.length, s.portrait);
           s.placeMember(memberId, s.courts[index].id, { x: p.x - cx, z: p.z - cz });

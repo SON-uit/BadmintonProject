@@ -19,9 +19,12 @@ const PORTRAIT_ROW_PITCH = COURT_L + COURT_MARGIN * 2 + 3.4;
 /** Khoảng cách giữa hai người chờ — đủ rộng để nhãn tên không đè lên nhau. */
 const QUEUE_DX = 3.4;
 const QUEUE_DZ = 2;
-/** Khoảng trống giữa mép sân và hàng người chờ đầu tiên. */
-const QUEUE_GAP = 3.6;
-const QUEUE_Z0 = COURT_L / 2 + COURT_MARGIN + QUEUE_GAP;
+/** Khoảng trống giữa mép sân và hàng người chờ đầu tiên (giữa có hàng rào phân cách sảnh chờ). */
+const QUEUE_GAP = 4.2;
+/** Màn hình dọc: sảnh chờ lùi hẳn ra trước, tách biệt rõ khỏi dãy sân. */
+const QUEUE_GAP_PORTRAIT = 7;
+const queueZ0 = (portrait: boolean) => COURT_L / 2 + COURT_MARGIN + (portrait ? QUEUE_GAP_PORTRAIT : QUEUE_GAP);
+const QUEUE_Z0 = queueZ0(false);
 /** Số hàng tối đa của hàng chờ khi nó bị kẹp giữa hai dãy sân. */
 const QUEUE_ROWS_BETWEEN = 3;
 const FRONT_ROW_Z = QUEUE_Z0 + (QUEUE_ROWS_BETWEEN - 1) * QUEUE_DZ + QUEUE_GAP + COURT_MARGIN + COURT_L / 2;
@@ -63,19 +66,33 @@ export const SLOT_LOCAL: [number, number][] = [
   [1.5, 3.9],
 ];
 
-/** Sân nào chứa điểm (x, z)? Trả về -1 nếu không có. */
-export function courtIndexAt(x: number, z: number, total: number, portrait = false): number {
+/**
+ * Sân nào chứa điểm (x, z)? Trả về -1 nếu không có.
+ * `slack` (mét): thả hơi lệch ra ngoài mép vẫn tính là sân gần nhất — dễ thả khi camera ở xa.
+ */
+export function courtIndexAt(x: number, z: number, total: number, portrait = false, slack = 0): number {
+  let best = -1;
+  let bestDist = Infinity;
   for (let i = 0; i < total; i++) {
     const c = courtCenter(i, total, portrait);
-    if (Math.abs(x - c.x) <= COURT_W / 2 + COURT_MARGIN && Math.abs(z - c.z) <= COURT_L / 2 + COURT_MARGIN) return i;
+    const dx = Math.max(0, Math.abs(x - c.x) - (COURT_W / 2 + COURT_MARGIN));
+    const dz = Math.max(0, Math.abs(z - c.z) - (COURT_L / 2 + COURT_MARGIN));
+    if (dx === 0 && dz === 0) return i;
+    const d = Math.hypot(dx, dz);
+    if (d <= slack && d < bestDist) {
+      best = i;
+      bestDist = d;
+    }
   }
-  return -1;
+  return best;
 }
 
 export interface QueueLayout {
   width: number;
   depth: number;
   centerZ: number;
+  /** Sảnh chờ kẹp giữa hai dãy sân (cần hàng rào ở cả hai phía). */
+  between: boolean;
   position: (index: number) => [number, number];
 }
 
@@ -89,11 +106,13 @@ export function queueLayout(count: number, totalCourts: number, portrait = false
   const dx = Math.min(QUEUE_DX, (width - 1.2) / cols);
   const rows = Math.max(1, Math.ceil(count / cols));
   const shownRows = twoRows ? QUEUE_ROWS_BETWEEN : rows;
-  const firstZ = QUEUE_Z0 + ((shownRows - rows) * QUEUE_DZ) / 2;
+  const z0 = queueZ0(portrait);
+  const firstZ = z0 + ((shownRows - rows) * QUEUE_DZ) / 2;
   return {
     width,
     depth: shownRows * QUEUE_DZ + 1,
-    centerZ: QUEUE_Z0 + ((shownRows - 1) * QUEUE_DZ) / 2,
+    centerZ: z0 + ((shownRows - 1) * QUEUE_DZ) / 2,
+    between: twoRows,
     position: (index) => {
       const row = Math.floor(index / cols);
       // mỗi hàng được căn giữa theo số người thực tế trong hàng đó

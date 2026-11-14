@@ -16,7 +16,7 @@ const baloo = Baloo_2({
 });
 
 export const metadata: Metadata = {
-  title: "SAPSAN – Xếp sân cầu lông",
+  title: "Linh Cáo Badminton – Xếp sân cầu lông",
   description: "Xếp sân đánh đôi cầu lông dạng game 3D: hàng chờ, kéo thả, xếp ngẫu nhiên, thống kê.",
 };
 

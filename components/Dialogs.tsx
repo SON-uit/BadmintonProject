@@ -22,6 +22,7 @@ import {
   type Team,
   type Vibe,
 } from "@/lib/types";
+import AttendanceDialog from "./AttendanceDialog";
 import BillingDialog from "./BillingDialog";
 import { Modal, SectionTitle } from "./Modal";
 
@@ -400,38 +401,38 @@ function MemberCard({
         </span>
         {status === "present" ? (
           <button
-            className="btn btn-ghost !rounded-lg !px-1.5 !py-0.5 !text-[10px] !shadow-none"
+            className="btn btn-ghost !rounded-lg !px-1.5 !py-0.5 !text-[10px] !shadow-none compact:!min-h-9 compact:!px-2 compact:!text-xs"
             aria-label={`Xác nhận ${member.name} rời sân`}
             title="Xác nhận rời sân"
             onClick={() => checkOut(member.id)}
           >
-            🚪 Về
+            🏠 Về
           </button>
         ) : (
           <button
-            className="btn btn-green !rounded-lg !px-1.5 !py-0.5 !text-[10px] !shadow-none"
+            className="btn btn-green !rounded-lg !px-1.5 !py-0.5 !text-[10px] !shadow-none compact:!min-h-9 compact:!px-2 compact:!text-xs"
             aria-label={`Xác nhận ${member.name} vào sân`}
             title="Xác nhận vào sân"
             onClick={() => checkIn(member.id)}
           >
-            ✓ Vào
+            ✅ Có mặt
           </button>
         )}
         <button
-          className="btn btn-ghost !rounded-lg !px-1 !py-0.5 !text-[10px] !shadow-none"
+          className="btn btn-ghost !rounded-lg !px-1 !py-0.5 !text-[10px] !shadow-none compact:!min-h-9 compact:!px-2 compact:!text-xs"
           aria-label={`Sửa ${member.name}`}
           title="Sửa"
           onClick={onEdit}
         >
-          ✏️
+          ✏️ Sửa
         </button>
         <button
-          className="btn btn-ghost !rounded-lg !px-1 !py-0.5 !text-[10px] !shadow-none hover:!bg-rose-100"
+          className="btn btn-ghost !rounded-lg !px-1 !py-0.5 !text-[10px] !shadow-none hover:!bg-rose-100 compact:!min-h-9 compact:!px-2 compact:!text-xs"
           aria-label={`Xóa ${member.name}`}
           title="Xóa"
           onClick={() => window.confirm(`Xóa thành viên "${member.name}"?`) && removeMember(member.id)}
         >
-          🗑️
+          🗑️ Xóa
         </button>
       </div>
     </li>
@@ -451,7 +452,8 @@ function RosterDialog({ initialEditId, onClose }: { initialEditId: string | null
   const [name, setName] = useState(initial?.name ?? "");
   const [gender, setGender] = useState<Gender>(initial?.gender ?? "male");
   const [level, setLevel] = useState<Level>(initial?.level ?? 3);
-  const [present, setPresent] = useState(true);
+  // mặc định "chưa đến": thêm danh sách trước, người nào tới thì bấm Điểm danh
+  const [present, setPresent] = useState(false);
   const [bulk, setBulk] = useState(false);
   const [bulkText, setBulkText] = useState("");
   const [filter, setFilter] = useState<RosterFilter>("all");
@@ -613,7 +615,7 @@ function RosterDialog({ initialEditId, onClose }: { initialEditId: string | null
                 onChange={(e) => setPresent(e.target.checked)}
                 className="size-4 accent-emerald-500"
               />
-              Xác nhận có mặt ngay (bắt đầu tính giờ, vào hàng chờ)
+              Điểm danh luôn (đã có mặt: bắt đầu tính giờ, vào sảnh chờ)
             </label>
             <button type="button" className="font-bold text-sky-600 hover:underline" onClick={() => setBulk((b) => !b)}>
               {bulk ? "← Nhập từng người" : "Dán nhiều tên cùng lúc →"}
@@ -654,7 +656,7 @@ function RosterDialog({ initialEditId, onClose }: { initialEditId: string | null
         ) : (
           // lưới nhiều cột: 25 người vừa 5 hàng trên màn hình rộng
           <ul
-            className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+            className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
             aria-label="Danh sách thành viên"
           >
             {shown.map(({ m, i }) => (
@@ -767,5 +769,7 @@ export default function Dialogs() {
       return <CleanupDialog onClose={closeDialog} />;
     case "billing":
       return <BillingDialog onClose={closeDialog} />;
+    case "attendance":
+      return <AttendanceDialog onClose={closeDialog} />;
   }
 }

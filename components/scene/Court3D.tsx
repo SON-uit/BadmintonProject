@@ -129,7 +129,7 @@ function CourtName({ court }: { court: Court }) {
   if (draft === null) {
     return (
       <button
-        className="font-display court-name block max-w-[9rem] cursor-text truncate text-left text-base font-extrabold leading-none text-slate-900 decoration-dotted underline-offset-2 hover:underline compact:max-w-[5.5rem] compact:text-xs"
+        className="font-display court-name block max-w-[9rem] cursor-text truncate text-left text-base font-extrabold leading-none text-slate-900 decoration-dotted underline-offset-2 hover:underline compact:max-w-[6rem] compact:text-sm"
         title="Bấm để đổi tên sân"
         aria-label={`Đổi tên ${court.name}`}
         onClick={() => setDraft(court.name)}
@@ -162,7 +162,6 @@ function CourtName({ court }: { court: Court }) {
 
 function CourtLabel({ court }: { court: Court }) {
   const removeCourt = useGame((s) => s.removeCourt);
-  const startMatch = useGame((s) => s.startMatch);
   const placeSelected = useGame((s) => s.placeSelected);
   const openDialog = useGame((s) => s.openDialog);
   const selectedCount = useGame((s) => s.selectedIds.length);
@@ -180,14 +179,14 @@ function CourtLabel({ court }: { court: Court }) {
 
   return (
     <div
-      className={`pointer-events-auto grid select-none grid-cols-[1fr_auto] items-center gap-x-2 gap-y-1 whitespace-nowrap rounded-2xl border-2 px-2.5 py-1.5 shadow-lg compact:flex compact:gap-1 compact:rounded-xl compact:px-1.5 compact:py-1 ${
+      className={`pointer-events-auto grid select-none grid-cols-[1fr_auto] items-center gap-x-2 gap-y-1 whitespace-nowrap rounded-2xl border-2 px-2.5 py-1.5 shadow-lg compact:gap-1 compact:rounded-xl compact:px-1.5 compact:py-1 ${
         playing ? "border-orange-400 bg-orange-50" : ready ? "border-emerald-400 bg-emerald-50" : "border-white bg-white/95"
       }`}
     >
       <div className="leading-tight">
         <CourtName court={court} />
         <div
-          className={`text-[11px] font-bold compact:text-[9px] ${
+          className={`text-[11px] font-bold compact:text-[10px] ${
             playing ? "text-orange-600" : ready ? "text-emerald-600" : "text-slate-500"
           }`}
         >
@@ -202,8 +201,8 @@ function CourtLabel({ court }: { court: Court }) {
             </>
           ) : ready ? (
             <>
-              {vibe ? `${vibe.emoji} ${vibe.name}` : "Đủ 4 người"}
-              <span className="compact:hidden"> · sẵn sàng</span>
+              ✅ {vibe ? `${vibe.emoji} ${vibe.name}` : "Đủ 4 người"}
+              <span className="compact:hidden"> · chờ bắt đầu</span>
             </>
           ) : filled === 0 ? (
             "Sân trống"
@@ -216,31 +215,23 @@ function CourtLabel({ court }: { court: Court }) {
         </div>
       </div>
       <button
-        className={`btn btn-ghost !px-2 !py-1 !text-xs compact:order-last compact:!px-1.5 ${playing ? "opacity-40" : ""}`}
+        className={`btn btn-ghost !px-2 !py-1 !text-xs compact:!min-h-8 compact:!px-2 ${playing ? "opacity-40" : ""}`}
         title={playing ? "Đang có trận — kết thúc trận trước khi xóa sân" : "Xóa sân"}
         aria-disabled={playing}
         aria-label={`Xóa ${court.name}`}
         onClick={onRemove}
       >
-        ✕
+        🗑️
       </button>
       {playing ? (
         <button
-          className="btn btn-danger col-span-2 !py-1 !text-xs compact:!px-2"
+          className="btn btn-danger col-span-2 !py-1 !text-xs compact:!min-h-9 compact:!text-[13px]"
           aria-label={`Kết thúc trận ở ${court.name}`}
           onClick={() => openDialog({ kind: "finish", courtId: court.id })}
         >
-          🏁<span className="compact:hidden"> Kết thúc</span>
+          🏁 Kết thúc
         </button>
-      ) : ready ? (
-        <button
-          className="btn btn-green col-span-2 animate-pulse !py-1 !text-xs compact:!px-2"
-          aria-label={`Bắt đầu trận ở ${court.name}`}
-          onClick={() => startMatch(court.id)}
-        >
-          ▶<span className="compact:hidden"> Bắt đầu</span>
-        </button>
-      ) : selectedCount > 0 ? (
+      ) : ready ? null /* nút ▶ Bắt đầu gom về cột "Sân sẵn sàng" (ReadyDock) cho dễ bấm */ : selectedCount > 0 ? (
         <button
           // màn hình nhỏ: ẩn nút này, dùng các nút sân trên thanh "đã chọn" (hoặc chạm thẳng vào sân)
           className="btn btn-pink col-span-2 !py-1 !text-xs compact:hidden"
@@ -251,12 +242,12 @@ function CourtLabel({ court }: { court: Court }) {
         </button>
       ) : (
         <button
-          className="btn btn-amber col-span-2 !py-1 !text-xs compact:!px-2"
+          className="btn btn-amber col-span-2 !py-1 !text-xs compact:!min-h-9 compact:!text-[13px]"
           title="Chọn thể loại + tính chất rồi tự xếp người vào sân này"
           aria-label={`Xếp trận cho ${court.name}`}
           onClick={() => openDialog({ kind: "arrange", courtId: court.id })}
         >
-          🎲<span className="compact:hidden"> Xếp trận</span>
+          🎲 Xếp trận
         </button>
       )}
     </div>

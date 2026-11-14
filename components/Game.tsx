@@ -1,17 +1,21 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { matchesOfDay } from "@/lib/logic";
 import { useGame } from "@/lib/store";
-import { GENDER_COLOR } from "@/lib/types";
+import { GENDER_COLOR, vibeInfo } from "@/lib/types";
 import Dialogs from "./Dialogs";
 import MemberPanel from "./MemberPanel";
 import Scene, { type HudInsets } from "./scene/Scene";
 import StatsPanel from "./StatsPanel";
 
-/** Dưới ngưỡng này bảng thành viên chuyển thành ngăn kéo phía dưới (điện thoại dọc). */
-const SHEET_BREAKPOINT = 768;
+export const BRAND = "LINH CÁO BADMINTON";
+
+/** Dưới ngưỡng này giao diện chuyển sang kiểu điện thoại: tab Sân / Sảnh chờ + thanh điều hướng dưới. */
+const MOBILE_BREAKPOINT = 768;
 const SIDE_PANEL_WIDTH = 328;
+
+type MobileTab = "court" | "lobby";
 
 function useViewport() {
   const [size, setSize] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }));
@@ -27,99 +31,339 @@ function useViewport() {
   return size;
 }
 
-function TopBar({
-  barRef,
-  onOpenStats,
-  onFit,
-}: {
-  barRef: RefObject<HTMLElement | null>;
-  onOpenStats: () => void;
-  onFit: () => void;
-}) {
+/** Đo cạnh dưới (thanh trên) hoặc phần chiếm từ đáy màn hình (thanh dưới) của một phần tử HUD. */
+function useEdge(ref: RefObject<HTMLElement | null>, edge: "top" | "bottom", fallback: number, active: boolean) {
+  const [value, setValue] = useState(fallback);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || !active) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      setValue(Math.round(edge === "bottom" ? r.bottom : window.innerHeight - r.top));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [ref, edge, active]);
+  return value;
+}
+
+/** Số người đang đứng ở các sân chưa bắt đầu (có thể đưa về sảnh chờ). */
+function useIdleOnCourt() {
+  return useGame((s) => s.courts.reduce((n, c) => (c.status === "playing" ? n : n + c.slots.filter(Boolean).length), 0));
+}
+
+function Logo({ subtitle }: { subtitle: ReactNode }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2 pr-1">
+      <span className="sport-stripes grid size-10 shrink-0 -rotate-6 place-items-center rounded-xl bg-gradient-to-br from-orange-400 to-pink-500 text-2xl shadow-md md:size-11 md:rounded-2xl">
+        🦊
+      </span>
+      <div className="min-w-0 leading-none">
+        <h1 className="font-display truncate bg-gradient-to-r from-orange-500 via-pink-500 to-sky-500 bg-clip-text pr-1 text-base font-extrabold italic tracking-wide text-transparent md:text-xl">
+          {BRAND}
+        </h1>
+        <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function CourtSummary() {
   const courts = useGame((s) => s.courts);
+  const waiting = useGame((s) => s.queue.length);
+  const playing = courts.filter((c) => c.status === "playing").length;
+  return (
+    <>
+      {courts.length} sân · <span className="text-orange-600">{playing} đang đánh</span> ·{" "}
+      <span className="text-violet-600">{waiting} chờ</span>
+    </>
+  );
+}
+
+/** Thanh trên — máy tính / máy tính bảng. */
+function TopBar({ barRef, onOpenStats, onFit }: { barRef: RefObject<HTMLElement | null>; onOpenStats: () => void; onFit: () => void }) {
   const matches = useGame((s) => s.matches);
   const addCourt = useGame((s) => s.addCourt);
   const openDialog = useGame((s) => s.openDialog);
+  const returnIdleToQueue = useGame((s) => s.returnIdleToQueue);
   const theme = useGame((s) => s.theme);
   const toggleTheme = useGame((s) => s.toggleTheme);
-  const playing = courts.filter((c) => c.status === "playing").length;
+  const idleOnCourt = useIdleOnCourt();
+  const notArrived = useGame((s) => s.members.filter((m) => m.checkInAt === null).length);
   const todayCount = matchesOfDay(matches).length;
 
   return (
-    <header
-      ref={barRef}
-      className="panel absolute inset-x-2 top-2 z-30 flex flex-wrap items-center gap-x-2 gap-y-1.5 px-2.5 py-2 md:inset-x-3 md:top-3 md:gap-x-3 md:px-3"
-    >
-      <div className="flex w-full min-w-0 items-center gap-2 md:contents">
-      <div className="flex min-w-0 items-center gap-2 pr-1">
-        <span className="sport-stripes grid size-9 shrink-0 -rotate-6 place-items-center rounded-xl bg-gradient-to-br from-orange-400 to-pink-500 text-xl shadow-md md:size-11 md:rounded-2xl md:text-2xl">
-          🏸
-        </span>
-        <div className="min-w-0 leading-none">
-          <h1 className="font-display truncate max-sm:sr-only bg-gradient-to-r from-orange-500 via-pink-500 to-sky-500 bg-clip-text pr-1 text-base font-extrabold italic tracking-wide text-transparent md:text-xl">
-            SAPSAN CẦU LÔNG
-          </h1>
-          <p className="mt-0.5 text-[11px] font-semibold text-slate-500">
-            {courts.length} sân · <span className="text-orange-600">{playing} đang đánh</span>
-          </p>
-        </div>
+    <header ref={barRef} className="panel absolute inset-x-3 top-3 z-30 flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
+      <Logo subtitle={<CourtSummary />} />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          className="btn btn-green"
+          onClick={() => openDialog({ kind: "attendance" })}
+          title="Ai đến thì điểm danh: ghi giờ vào sân và đưa vào sảnh chờ"
+        >
+          ✅ Điểm danh
+          {notArrived > 0 && <span className="rounded-full bg-white px-1.5 text-xs tabular-nums text-emerald-700">{notArrived}</span>}
+        </button>
+        <button className="btn btn-primary" onClick={addCourt} title="Thêm một sân mới">
+          ➕ Thêm sân
+        </button>
+        <button
+          className="btn btn-amber"
+          onClick={() => openDialog({ kind: "arrange", courtId: null })}
+          title="Chọn sân, thể loại và tính chất trận rồi tự xếp người"
+        >
+          🎲 Xếp trận
+        </button>
+        <button
+          className="btn btn-ghost"
+          onClick={returnIdleToQueue}
+          disabled={idleOnCourt === 0}
+          title="Đưa tất cả người ở các sân chưa bắt đầu về sảnh chờ"
+          aria-label="Đưa về sảnh chờ"
+        >
+          ↩️<span className="max-xl:hidden"> Về sảnh chờ</span>
+          {idleOnCourt > 0 && <span className="rounded-full bg-violet-500 px-1.5 text-xs tabular-nums text-white">{idleOnCourt}</span>}
+        </button>
       </div>
 
-      <div className="ml-auto flex shrink-0 items-center gap-1.5 md:order-3 md:gap-2">
-        <button
-          className="btn btn-ghost compact:!px-2.5"
-          onClick={() => openDialog({ kind: "cleanup" })}
-          title="Xóa nhanh thành viên / sân"
-          aria-label="Dọn dẹp"
-        >
-          🧹<span className="compact:hidden max-lg:hidden"> Dọn dẹp</span>
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <button className="btn btn-ghost" onClick={() => openDialog({ kind: "cleanup" })} title="Xóa nhanh thành viên / sân" aria-label="Dọn dẹp">
+          🗑️<span className="max-lg:hidden"> Dọn dẹp</span>
+        </button>
+        <button className="btn btn-ghost" onClick={onFit} title="Đưa camera về góc nhìn thấy toàn bộ sân" aria-label="Xem toàn sân">
+          🔭<span className="max-lg:hidden"> Toàn sân</span>
         </button>
         <button
-          className="btn btn-ghost compact:!px-2.5"
-          onClick={onFit}
-          title="Đưa camera về góc nhìn thấy toàn bộ sân"
-          aria-label="Căn giữa"
-        >
-          🎯<span className="compact:hidden max-lg:hidden"> Căn giữa</span>
-        </button>
-        <button
-          className="btn btn-ghost compact:!px-2.5"
+          className="btn btn-ghost"
           onClick={toggleTheme}
           title={theme === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
           aria-label={theme === "dark" ? "Giao diện sáng" : "Giao diện tối"}
         >
           {theme === "dark" ? "☀️" : "🌙"}
+          <span className="max-lg:hidden">{theme === "dark" ? " Sáng" : " Tối"}</span>
         </button>
         <button
-          className="btn btn-green compact:!px-2.5"
+          className="btn btn-green"
           onClick={() => openDialog({ kind: "billing" })}
           title="Tính tiền sân + cầu theo thời gian có mặt, xuất ảnh"
           aria-label="Tính tiền"
         >
-          💰<span className="compact:hidden max-lg:hidden"> Tính tiền</span>
+          💰<span className="max-lg:hidden"> Tính tiền</span>
         </button>
-        <button className="btn btn-sky compact:!px-2.5" onClick={onOpenStats} aria-label="Thống kê">
-          📊<span className="compact:hidden"> Thống kê</span>
+        <button className="btn btn-sky" onClick={onOpenStats} aria-label="Thống kê">
+          📊<span className="max-lg:hidden"> Thống kê</span>
           <span className="rounded-full bg-white px-1.5 text-xs tabular-nums text-sky-600">{todayCount}</span>
         </button>
       </div>
-      </div>
-
-      {/* màn hình hẹp: hai nút chính xuống dòng thứ hai, chia đôi bề ngang */}
-      <div className="flex w-full items-center gap-1.5 md:order-2 md:w-auto md:gap-2">
-        <button className="btn btn-primary max-md:flex-1" onClick={addCourt} aria-label="Thêm sân">
-          ＋ Thêm sân
-        </button>
-        <button
-          className="btn btn-amber max-md:flex-1"
-          onClick={() => openDialog({ kind: "arrange", courtId: null })}
-          title="Chọn sân, thể loại và tính chất trận rồi tự xếp người"
-          aria-label="Xếp trận"
-        >
-          🎲 Xếp trận
-        </button>
-      </div>
     </header>
+  );
+}
+
+/** Thanh trên — điện thoại: chỉ logo + trạng thái, mọi nút chức năng nằm ở thanh dưới. */
+function MobileTopBar({ barRef }: { barRef: RefObject<HTMLElement | null> }) {
+  return (
+    <header
+      ref={barRef}
+      className="panel absolute inset-x-2 top-2 z-30 flex items-center gap-2 px-2.5 py-1.5"
+      style={{ marginTop: "env(safe-area-inset-top)" }}
+    >
+      <Logo subtitle={<CourtSummary />} />
+    </header>
+  );
+}
+
+function NavButton({
+  icon,
+  label,
+  active,
+  badge,
+  tone,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  active?: boolean;
+  badge?: number;
+  tone?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      className={`relative flex min-h-[60px] flex-1 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl px-0.5 transition active:scale-95 ${
+        active ? "bg-orange-500 text-white shadow-md" : (tone ?? "text-slate-700")
+      }`}
+    >
+      <span className="text-[26px] leading-none" aria-hidden>
+        {icon}
+      </span>
+      <span className="whitespace-nowrap text-[11px] font-extrabold leading-none">{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span className="absolute right-1 top-0.5 min-w-5 rounded-full bg-rose-500 px-1 text-center text-[11px] font-extrabold tabular-nums leading-5 text-white ring-2 ring-white">
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/** Thanh điều hướng dưới — điện thoại. Nút to, có icon + tên chức năng. */
+function MobileNav({
+  navRef,
+  tab,
+  onTab,
+  onMore,
+}: {
+  navRef: RefObject<HTMLElement | null>;
+  tab: MobileTab;
+  onTab: (tab: MobileTab) => void;
+  onMore: () => void;
+}) {
+  const openDialog = useGame((s) => s.openDialog);
+  const waiting = useGame((s) => s.queue.length);
+  const notArrived = useGame((s) => s.members.filter((m) => m.checkInAt === null).length);
+  return (
+    <nav
+      ref={navRef}
+      className="panel absolute inset-x-2 bottom-2 z-30 flex items-stretch gap-1 p-1.5"
+      style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+      aria-label="Điều hướng"
+    >
+      <NavButton icon="🏟️" label="Sân" active={tab === "court"} onClick={() => onTab("court")} />
+      <NavButton icon="🪑" label="Sảnh chờ" active={tab === "lobby"} badge={waiting} onClick={() => onTab("lobby")} />
+      <NavButton icon="✅" label="Điểm danh" badge={notArrived} onClick={() => openDialog({ kind: "attendance" })} />
+      <NavButton icon="🎲" label="Xếp trận" onClick={() => openDialog({ kind: "arrange", courtId: null })} />
+      <NavButton icon="☰" label="Thêm" onClick={onMore} />
+    </nav>
+  );
+}
+
+/** Menu "Thêm" trên điện thoại: các chức năng còn lại, mỗi ô một nút to có tên + mô tả. */
+function MoreMenu({ onClose, onOpenStats, onFit }: { onClose: () => void; onOpenStats: () => void; onFit: () => void }) {
+  const addCourt = useGame((s) => s.addCourt);
+  const openDialog = useGame((s) => s.openDialog);
+  const returnIdleToQueue = useGame((s) => s.returnIdleToQueue);
+  const theme = useGame((s) => s.theme);
+  const toggleTheme = useGame((s) => s.toggleTheme);
+  const matches = useGame((s) => s.matches);
+  const idleOnCourt = useIdleOnCourt();
+  const todayCount = matchesOfDay(matches).length;
+
+  const items: { icon: string; label: string; hint: string; run: () => void; tone?: string }[] = [
+    { icon: "💰", label: "Tính tiền", hint: "Chia tiền sân + cầu, lưu ảnh bill", run: () => openDialog({ kind: "billing" }), tone: "text-emerald-700" },
+    { icon: "➕", label: "Thêm sân", hint: "Thêm một sân mới", run: addCourt },
+    { icon: "👤", label: "Thành viên", hint: "Thêm, sửa, điểm danh", run: () => openDialog({ kind: "roster", editId: null }) },
+    {
+      icon: "↩️",
+      label: "Về sảnh chờ",
+      hint: idleOnCourt > 0 ? `Đưa ${idleOnCourt} người ở sân chưa đánh về` : "Không có ai ở sân chưa đánh",
+      run: returnIdleToQueue,
+    },
+    { icon: "📊", label: "Thống kê", hint: `${todayCount} trận hôm nay`, run: onOpenStats },
+    { icon: "🔭", label: "Xem toàn sân", hint: "Đưa camera về góc nhìn toàn bộ", run: onFit },
+    {
+      icon: theme === "dark" ? "☀️" : "🌙",
+      label: theme === "dark" ? "Giao diện sáng" : "Giao diện tối",
+      hint: "Đổi màu nền",
+      run: toggleTheme,
+    },
+    { icon: "🗑️", label: "Dọn dẹp", hint: "Xóa nhanh thành viên / sân", run: () => openDialog({ kind: "cleanup" }), tone: "text-rose-600" },
+  ];
+
+  return (
+    <div className="absolute inset-0 z-40 flex items-end bg-sky-950/40 p-2" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-label="Chức năng khác"
+        className="panel animate-pop w-full p-2"
+        onClick={(e) => e.stopPropagation()}
+        style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <div className="flex items-center justify-between px-2 pb-1.5 pt-1">
+          <h2 className="font-display text-lg font-extrabold text-slate-800">Chức năng khác</h2>
+          <button className="btn btn-ghost" onClick={onClose} aria-label="Đóng">
+            ✕ Đóng
+          </button>
+        </div>
+        <ul className="grid grid-cols-2 gap-1.5">
+          {items.map((it) => (
+            <li key={it.label}>
+              <button
+                className={`flex min-h-16 w-full cursor-pointer items-center gap-2.5 rounded-2xl bg-slate-100 px-3 py-2 text-left transition active:scale-95 ${it.tone ?? "text-slate-800"}`}
+                onClick={() => {
+                  onClose();
+                  it.run();
+                }}
+              >
+                <span className="text-2xl leading-none" aria-hidden>
+                  {it.icon}
+                </span>
+                <span className="min-w-0 leading-tight">
+                  <span className="block text-sm font-extrabold">{it.label}</span>
+                  <span className="block text-[11px] font-semibold text-slate-500">{it.hint}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Cột "Sân đủ người": gom nút ▶ Bắt đầu của mọi sân đã đủ 4 người về một chỗ —
+ * bên phải trên máy tính, bên trái trên điện thoại.
+ */
+function ReadyDock({ side }: { side: "left" | "right" }) {
+  const courts = useGame((s) => s.courts);
+  const members = useGame((s) => s.members);
+  const startMatch = useGame((s) => s.startMatch);
+  const ready = courts.filter((c) => c.status === "idle" && c.slots.every(Boolean));
+  if (ready.length === 0) return null;
+  const byId = new Map(members.map((m) => [m.id, m]));
+
+  return (
+    <div
+      className={`pointer-events-none absolute z-20 flex max-h-[45dvh] flex-col gap-1.5 overflow-y-auto p-1 ${
+        side === "right" ? "right-2 items-end" : "left-1 items-start"
+      }`}
+      style={{ top: `calc(var(--hud-top) + ${side === "right" ? 6 : 50}px)` }}
+      aria-label="Sân đủ người"
+    >
+      <span className="font-display rounded-full bg-emerald-600 px-2.5 py-0.5 text-[11px] font-extrabold text-white shadow">
+        ✅ SÂN ĐỦ NGƯỜI · {ready.length}
+      </span>
+      {ready.map((c) => {
+        const vibe = c.vibe ? vibeInfo(c.vibe) : null;
+        const names = c.slots.map((id) => (id ? byId.get(id)?.name : undefined)).filter(Boolean);
+        return (
+          <button
+            key={c.id}
+            onClick={() => startMatch(c.id)}
+            aria-label={`Bắt đầu trận ở ${c.name}`}
+            className="btn btn-green pointer-events-auto w-56 !justify-start !rounded-2xl !px-2.5 !py-2 text-left ring-4 ring-emerald-300/60 compact:w-48"
+          >
+            <span className="grid size-9 shrink-0 animate-pulse place-items-center rounded-full bg-white text-lg text-emerald-600">▶</span>
+            <span className="min-w-0 leading-tight">
+              <span className="block truncate text-sm font-extrabold">
+                Bắt đầu · {c.name}
+                {vibe && ` ${vibe.emoji}`}
+              </span>
+              <span className="block truncate text-[11px] font-semibold text-emerald-50">{names.join(", ")}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -141,11 +385,8 @@ function SelectionBar() {
   const openCourts = courts.filter((c) => c.status === "idle" && c.slots.some((s) => !s));
 
   return (
-    <div
-      className="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-2"
-      style={{ bottom: "calc(var(--hud-bottom) + 4px)" }}
-    >
-      <div className="panel animate-pop pointer-events-auto max-w-full space-y-1.5 !border-pink-400 px-3 py-2">
+    <div className="pointer-events-none absolute inset-x-0 z-30 flex justify-center px-2" style={{ bottom: "calc(var(--hud-bottom) + 6px)" }}>
+      <div className="panel animate-pop pointer-events-auto w-full max-w-xl space-y-2 !border-pink-400 px-3 py-2.5">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="font-display text-sm font-extrabold text-pink-600">ĐÃ CHỌN {selected.length}/4</span>
           {selected.map((m, i) => (
@@ -153,39 +394,34 @@ function SelectionBar() {
               key={m.id}
               onClick={() => toggleSelect(m.id)}
               title="Bỏ chọn người này"
-              className="flex cursor-pointer items-center gap-1 rounded-full bg-pink-500 py-0.5 pl-1 pr-2 text-xs font-bold text-white transition hover:bg-pink-400"
+              className="flex min-h-8 cursor-pointer items-center gap-1 rounded-full bg-pink-500 py-0.5 pl-1 pr-2 text-xs font-bold text-white transition hover:bg-pink-400 compact:text-sm"
             >
-              <span className="grid size-4 place-items-center rounded-full bg-white text-[10px] font-extrabold text-pink-600">
-                {i + 1}
-              </span>
+              <span className="grid size-5 place-items-center rounded-full bg-white text-[11px] font-extrabold text-pink-600">{i + 1}</span>
               <span className="size-2 rounded-full ring-1 ring-white" style={{ background: GENDER_COLOR[m.gender] }} />
               {m.name}
-              <span className="opacity-70">✕</span>
+              <span className="opacity-80">✕</span>
             </button>
           ))}
           <button className="btn btn-ghost ml-auto !px-2.5 !py-1 !text-xs" onClick={clearSelection}>
-            Bỏ chọn
+            ✕ Bỏ chọn
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Xếp vào sân">
-          <span className="text-xs font-bold text-slate-600">👉 Xếp vào:</span>
+          <span className="text-xs font-bold text-slate-600 compact:basis-full">👉 Bấm sân để xếp vào:</span>
           {openCourts.length === 0 ? (
             <span className="text-xs font-semibold text-slate-500">chưa có sân nào còn chỗ</span>
           ) : (
             openCourts.map((c) => (
               <button
                 key={c.id}
-                className="btn btn-pink !rounded-xl !px-2.5 !py-1 !text-xs"
+                className="btn btn-pink !rounded-xl !px-3 !py-1 compact:min-w-[30%] compact:flex-1"
                 onClick={() => placeSelected(c.id)}
               >
-                {c.name}
-                <span className="rounded-full bg-white/25 px-1 text-[10px] tabular-nums">
-                  {c.slots.filter(Boolean).length}/4
-                </span>
+                🏟️ {c.name}
+                <span className="rounded-full bg-white/25 px-1.5 text-[11px] tabular-nums">{c.slots.filter(Boolean).length}/4</span>
               </button>
             ))
           )}
-          <span className="text-[11px] font-medium text-slate-500 compact:hidden">hoặc bấm thẳng vào sân</span>
         </div>
       </div>
     </div>
@@ -246,13 +482,40 @@ function Toasts() {
   );
 }
 
+/** Nút nhanh nổi góc phải tab Sân (điện thoại). */
+function CourtQuickActions({ onFit }: { onFit: () => void }) {
+  const addCourt = useGame((s) => s.addCourt);
+  const returnIdleToQueue = useGame((s) => s.returnIdleToQueue);
+  const hasSelection = useGame((s) => s.selectedIds.length > 0);
+  const idleOnCourt = useIdleOnCourt();
+  if (hasSelection) return null;
+  return (
+    <div className="absolute right-2 z-20 flex flex-col items-end gap-1.5" style={{ bottom: "calc(var(--hud-bottom) + 8px)" }}>
+      {idleOnCourt > 0 && (
+        <button className="btn btn-ghost !rounded-2xl shadow-lg" onClick={returnIdleToQueue} title="Đưa người ở sân chưa đánh về sảnh chờ">
+          ↩️ Về sảnh chờ
+          <span className="rounded-full bg-violet-500 px-1.5 text-xs tabular-nums text-white">{idleOnCourt}</span>
+        </button>
+      )}
+      <button className="btn btn-ghost !rounded-2xl shadow-lg" onClick={onFit}>
+        🔭 Toàn sân
+      </button>
+      <button className="btn btn-primary !rounded-2xl shadow-lg" onClick={addCourt}>
+        ➕ Thêm sân
+      </button>
+    </div>
+  );
+}
+
 export default function Game() {
   const overlay = useRef<HTMLDivElement>(null);
   const bar = useRef<HTMLElement>(null);
+  const nav = useRef<HTMLElement>(null);
   const viewport = useViewport();
   const [statsOpen, setStatsOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [fitKey, setFitKey] = useState(0);
-  const [barBottom, setBarBottom] = useState(76);
+  const [tab, setTab] = useState<MobileTab>("court");
   const clearSelection = useGame((s) => s.clearSelection);
   const setPortrait = useGame((s) => s.setPortrait);
   const dialogOpen = useGame((s) => s.dialog !== null);
@@ -263,25 +526,16 @@ export default function Game() {
     document.documentElement.style.colorScheme = theme;
   }, [theme]);
 
-  // điện thoại dọc: bảng thành viên là ngăn kéo dưới; màn hình thấp (điện thoại ngang) cũng coi là "nhỏ"
-  const sheet = viewport.w < SHEET_BREAKPOINT;
-  const small = sheet || viewport.h < 500;
+  // điện thoại: tab Sân / Sảnh chờ tách biệt; màn hình thấp (điện thoại ngang) cũng coi là "nhỏ"
+  const mobile = viewport.w < MOBILE_BREAKPOINT;
+  const small = mobile || viewport.h < 500;
   const portrait = viewport.w < viewport.h;
-  const [panelOpen, setPanelOpen] = useState(() => window.innerWidth >= SHEET_BREAKPOINT && window.innerHeight >= 500);
-  const sheetHeight = Math.round(viewport.h * 0.46);
+  const [panelOpen, setPanelOpen] = useState(() => window.innerWidth >= MOBILE_BREAKPOINT && window.innerHeight >= 500);
 
   useEffect(() => setPortrait(portrait), [portrait, setPortrait]);
 
-  // thanh trên có thể xuống 2 dòng: đo chiều cao thật để các phần khác né ra
-  useLayoutEffect(() => {
-    const el = bar.current;
-    if (!el) return;
-    const measure = () => setBarBottom(Math.round(el.getBoundingClientRect().bottom));
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  const barBottom = useEdge(bar, "bottom", 64, true);
+  const navHeight = useEdge(nav, "top", 84, mobile);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -292,22 +546,24 @@ export default function Game() {
     return () => window.removeEventListener("keydown", onKey);
   }, [clearSelection, dialogOpen]);
 
+  const fit = () => setFitKey((k) => k + 1);
+  const lobby = mobile && tab === "lobby";
+
   /** Phần màn hình bị HUD che — camera căn cảnh vào vùng còn lại. */
   const insets: HudInsets = useMemo(
     () => ({
-      left: !sheet && panelOpen ? SIDE_PANEL_WIDTH : 0,
+      left: !mobile && panelOpen ? SIDE_PANEL_WIDTH : 0,
       top: barBottom + 46, // chừa chỗ cho đồng hồ
-      // ngăn kéo đang mở / nút mở ngăn kéo / dòng gợi ý (chỉ hiện trên màn hình rộng)
-      bottom: sheet ? (panelOpen ? sheetHeight + 14 : 62) : viewport.w >= 1024 ? 44 : 10,
+      // điện thoại: thanh điều hướng dưới · máy tính: dòng gợi ý (chỉ hiện trên màn hình rộng)
+      bottom: mobile ? navHeight + 8 : viewport.w >= 1024 ? 44 : 10,
     }),
-    [sheet, panelOpen, barBottom, sheetHeight, viewport.w],
+    [mobile, panelOpen, barBottom, navHeight, viewport.w],
   );
 
   const vars = {
     "--hud-top": `${barBottom}px`,
     "--hud-left": `${insets.left}px`,
     "--hud-bottom": `${insets.bottom}px`,
-    "--sheet-h": `${sheetHeight}px`,
   } as CSSProperties;
 
   return (
@@ -317,23 +573,46 @@ export default function Game() {
       style={vars}
     >
       {/* isolate: nhãn 3D (Html) không bao giờ đè lên HUD */}
-      <div className="absolute inset-0 isolate">
+      <div className="absolute inset-0 isolate" aria-hidden={lobby}>
         <Scene overlay={overlay as RefObject<HTMLElement>} fitKey={fitKey} insets={insets} compact={small} />
-        <div ref={overlay} className="pointer-events-none absolute inset-0 overflow-hidden" />
+        <div ref={overlay} className={`pointer-events-none absolute inset-0 overflow-hidden ${lobby ? "invisible" : ""}`} />
       </div>
 
-      <TopBar barRef={bar} onOpenStats={() => setStatsOpen(true)} onFit={() => setFitKey((k) => k + 1)} />
-      <Clock />
-      <MemberPanel open={panelOpen} onOpenChange={setPanelOpen} sheet={sheet} />
+      {mobile ? <MobileTopBar barRef={bar} /> : <TopBar barRef={bar} onOpenStats={() => setStatsOpen(true)} onFit={fit} />}
+      {!lobby && <Clock />}
+
+      {mobile ? (
+        lobby && <MemberPanel variant="screen" open onOpenChange={() => setTab("court")} />
+      ) : (
+        <MemberPanel variant="side" open={panelOpen} onOpenChange={setPanelOpen} />
+      )}
+
+      {!lobby && <ReadyDock side={mobile ? "left" : "right"} />}
+      {mobile && !lobby && <CourtQuickActions onFit={fit} />}
       <SelectionBar />
+
+      {mobile && (
+        <MobileNav
+          navRef={nav}
+          tab={tab}
+          onTab={(t) => {
+            // bấm lại tab Sân khi đang ở tab Sân = đưa camera về toàn cảnh
+            if (t === "court" && tab === "court") fit();
+            setTab(t);
+          }}
+          onMore={() => setMoreOpen(true)}
+        />
+      )}
 
       <p className="pointer-events-none absolute inset-x-0 bottom-2.5 z-10 hidden text-center text-[11px] font-semibold text-slate-700 lg:block">
         <span className="rounded-full bg-white/80 px-3 py-1 shadow">
-          Bấm chọn người rồi bấm sân · hoặc kéo thả vào sân · đủ 4 người bấm ▶ Bắt đầu · Chuột trái xoay · Cuộn để phóng to
+          Bấm chọn người rồi bấm sân · hoặc kéo tên / nhân vật thả vào sân · sân đủ người bấm ▶ Bắt đầu ở cột bên phải · Chuột trái xoay · Cuộn
+          để phóng to
         </span>
       </p>
 
       <Toasts />
+      {moreOpen && <MoreMenu onClose={() => setMoreOpen(false)} onOpenStats={() => setStatsOpen(true)} onFit={fit} />}
       <StatsPanel open={statsOpen} onClose={() => setStatsOpen(false)} />
       <Dialogs />
     </main>

@@ -41,7 +41,8 @@ export type Dialog =
   | { kind: "finish"; courtId: string }
   | { kind: "roster"; editId: string | null }
   | { kind: "cleanup" }
-  | { kind: "billing" };
+  | { kind: "billing" }
+  | { kind: "attendance" };
 
 export interface MemberInput {
   name: string;
@@ -104,6 +105,8 @@ interface GameState {
   /** Đặt thành viên vào sân; `near` là điểm thả (toạ độ theo tâm sân) để chọn ô gần nhất. */
   placeMember: (memberId: string, courtId: string, near?: { x: number; z: number }) => void;
   moveToQueue: (memberId: string) => void;
+  /** Đưa tất cả người đang đứng ở các sân CHƯA bắt đầu về sảnh chờ (sân đang đánh giữ nguyên). */
+  returnIdleToQueue: () => void;
   toggleSelect: (memberId: string) => void;
   clearSelection: () => void;
   /** Xếp lần lượt những người đang chọn vào sân. */
@@ -362,7 +365,7 @@ export const useGame = create<GameState>()(
           queue: placed ? s.queue : [...s.queue, memberId],
           queuedAt: stampQueued(s.queuedAt, [memberId]),
         });
-        s.notify(`${member.name} vào sân lúc ${fmtClock(member.checkInAt ?? now)}`, "success");
+        s.notify(`✅ ${member.name} đã điểm danh lúc ${fmtClock(member.checkInAt ?? now)} · vào sảnh chờ`, "success");
       },
 
       checkOut: (memberId) => {
@@ -513,6 +516,29 @@ export const useGame = create<GameState>()(
           // chưa đánh trận nào thì thời gian chờ vẫn tính tiếp, không bắt đầu lại
           queuedAt: s.queuedAt[memberId] ? s.queuedAt : stampQueued(s.queuedAt, [memberId]),
         });
+      },
+
+      returnIdleToQueue: () => {
+        const s = get();
+        const back: string[] = [];
+        const courts = s.courts.map((c) => {
+          if (c.status === "playing" || !c.slots.some(Boolean)) return c;
+          for (const id of c.slots) if (id && !s.queue.includes(id) && !back.includes(id)) back.push(id);
+          return { ...c, slots: c.slots.map(() => null) };
+        });
+        if (back.length === 0) {
+          s.notify("Không có ai đang đứng ở sân chưa bắt đầu", "info");
+          return;
+        }
+        const fresh = back.filter((id) => !s.queuedAt[id]);
+        set({
+          courts: dropStaleVibes(s.courts, courts),
+          queue: [...s.queue, ...back],
+          // ai đã có mốc chờ thì giữ nguyên, thời gian chờ tính tiếp
+          queuedAt: fresh.length ? stampQueued(s.queuedAt, fresh) : s.queuedAt,
+          selectedIds: [],
+        });
+        s.notify(`Đã đưa ${back.length} người về sảnh chờ`, "success");
       },
 
       toggleSelect: (memberId) => {

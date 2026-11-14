@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { billLineText, computeBill, fmtHour, fmtK, fmtVnd, genderWeight, type Bill, type BillSettings } from "@/lib/billing";
 import { useGame } from "@/lib/store";
 import { GENDER_COLOR } from "@/lib/types";
@@ -180,35 +181,89 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
   const [now] = useState(() => Date.now());
   const [endText, setEndText] = useState(() => toHHMM(now));
   const [busy, setBusy] = useState(false);
+  /** Ảnh bill dựng sẵn — để khi bấm "Lưu ảnh" gọi được bảng chia sẻ ngay (iOS bắt buộc gọi trong thao tác bấm). */
+  const [image, setImage] = useState<{ blob: Blob; url: string } | null>(null);
+  /** Máy không chia sẻ được ảnh: hiện ảnh xem trước để người dùng nhấn giữ → Lưu ảnh. */
+  const [preview, setPreview] = useState(false);
+  const imageRef = useRef(image);
+  imageRef.current = image;
 
   const endAt = fromHHMM(endText, now) ?? now;
   const result = useMemo(() => computeBill(members, bill, extras, endAt), [members, bill, extras, endAt]);
   const male = genderWeight("male", bill.genderDiff);
   const diff = result.collected - result.cost;
   const dateText = new Date(now).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const title = `🏸 Tiền sân ${dateText}`;
+  const title = `🦊 Linh Cáo Badminton · Tiền sân ${dateText}`;
+  const fileName = `tien-san-${dateText.replace(/\//g, "-")}.png`;
   const absent = members.filter((m) => m.checkInAt === null).length;
 
   const text = [title, ...result.lines.map(billLineText), `Tổng: ${fmtVnd(result.grandTotal)}đ`].join("\n");
 
   const exportImage = async () => {
-    setBusy(true);
-    try {
-      const blob = await renderBillImage(result, bill, title);
-      if (!blob) throw new Error("no blob");
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `tien-san-${dateText.replace(/\//g, "-")}.png`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      notify("Đã xuất ảnh bảng tính tiền", "success");
-    } catch {
-      notify("Không xuất được ảnh", "error");
-    } finally {
+    let img = imageRef.current;
+    if (!img) {
+      // ảnh chưa kịp dựng: dựng ngay
+      setBusy(true);
+      const blob = await renderBillImage(result, bill, title).catch(() => null);
       setBusy(false);
+      if (!blob) {
+        notify("Không xuất được ảnh", "error");
+        return;
+      }
+      img = { blob, url: URL.createObjectURL(blob) };
+      setImage(img);
     }
+    const touch = window.matchMedia("(pointer: coarse)").matches;
+    if (touch) {
+      // điện thoại: bảng chia sẻ của hệ điều hành → "Lưu hình ảnh" vào Ảnh / Bộ sưu tập, hoặc gửi Zalo, Messenger…
+      const file = new File([img.blob], fileName, { type: "image/png" });
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title });
+          return;
+        } catch (e) {
+          if ((e as DOMException)?.name === "AbortError") return; // người dùng tự đóng bảng chia sẻ
+        }
+      }
+      // không chia sẻ được: hiện ảnh để nhấn giữ → Lưu ảnh
+      setPreview(true);
+      return;
+    }
+    download(img.url);
+    notify("Đã tải ảnh bảng tính tiền về máy", "success");
   };
+
+  // dựng lại ảnh mỗi khi số liệu đổi (trễ một chút để không vẽ liên tục khi đang gõ)
+  useEffect(() => {
+    if (result.lines.length === 0) {
+      setImage(null);
+      return;
+    }
+    let cancelled = false;
+    const id = window.setTimeout(async () => {
+      const blob = await renderBillImage(result, bill, title).catch(() => null);
+      if (cancelled || !blob) return;
+      setImage({ blob, url: URL.createObjectURL(blob) });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(id);
+    };
+  }, [result, bill, title]);
+  // dọn URL ảnh cũ
+  useEffect(
+    () => () => {
+      if (image) URL.revokeObjectURL(image.url);
+    },
+    [image],
+  );
+
+  function download(url: string) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.click();
+  }
 
   const copyText = async () => {
     try {
@@ -232,7 +287,7 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
             📋 Sao chép chữ
           </button>
           <button className="btn btn-sky" onClick={exportImage} disabled={busy || result.lines.length === 0}>
-            📷 {busy ? "Đang xuất…" : "Xuất ảnh"}
+            🖼️ {busy ? "Đang tạo ảnh…" : "Lưu ảnh bill"}
           </button>
           <button className="btn btn-primary" onClick={onClose}>
             Xong
@@ -407,6 +462,36 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
           </pre>
         </section>
       )}
+
+      {preview &&
+        image &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[60] flex flex-col items-center gap-3 overflow-y-auto bg-slate-950/90 p-3"
+            onClick={() => setPreview(false)}
+          >
+            <p className="rounded-2xl bg-white px-4 py-2 text-center text-sm font-bold text-slate-800 shadow">
+              👆 Nhấn giữ vào ảnh → chọn <b>“Lưu vào Ảnh”</b> hoặc <b>“Tải hình ảnh xuống”</b>
+            </p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={image.url}
+              alt="Bảng tính tiền"
+              className="w-full max-w-md rounded-2xl shadow-2xl"
+              style={{ WebkitTouchCallout: "default", WebkitUserSelect: "auto", userSelect: "auto" }}
+              onClick={(e) => e.stopPropagation()}
+            />
+            <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+              <button className="btn btn-sky" onClick={() => download(image.url)}>
+                ⬇️ Tải về
+              </button>
+              <button className="btn btn-ghost" onClick={() => setPreview(false)}>
+                ✕ Đóng
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
     </Modal>
   );
 }

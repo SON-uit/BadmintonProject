@@ -1,4 +1,4 @@
-# SAPSAN – Xếp sân cầu lông (đánh đôi)
+# Linh Cáo Badminton – Xếp sân cầu lông (đánh đôi)
 
 Web app dạng game 3D để host xếp sân đánh đôi: Next.js 16 (App Router) + React 19 + Three.js (React Three Fiber) + Tailwind CSS v4.
 
