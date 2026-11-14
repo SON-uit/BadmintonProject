@@ -1,4 +1,6 @@
 import {
+  balanceLevel,
+  isWalkIn,
   MATCH_LABEL,
   vibeInfo,
   type DoublesType,
@@ -94,7 +96,8 @@ export function pickForMatch(pool: Candidate[], existing: Member[], type: Double
   let best: { picked: Member[]; score: number } | null = null;
   let existingFits = false;
   for (const [lo, hi] of LEVEL_WINDOWS[vibe]) {
-    if (existing.some((m) => m.level < lo || m.level > hi)) continue;
+    // Gà Vãng Lai hợp mọi khoảng trình
+    if (existing.some((m) => !isWalkIn(m.level) && (m.level < lo || m.level > hi))) continue;
     existingFits = true;
     const picked: Member[] = [];
     let score = 0;
@@ -102,7 +105,7 @@ export function pickForMatch(pool: Candidate[], existing: Member[], type: Double
     let f = 0;
     pool.forEach((c, rank) => {
       const { level, gender } = c.member;
-      if (level < lo || level > hi) return;
+      if (!isWalkIn(level) && (level < lo || level > hi)) return;
       if (gender === "male" ? m >= needMale : f >= needFemale) return;
       picked.push(c.member);
       score += rank; // hạng càng nhỏ = càng được ưu tiên
@@ -144,7 +147,8 @@ export function arrangeTeams(players: Member[], type: DoublesType, rnd: () => nu
     const teamA = [p[a1], p[a2]];
     const teamB = [p[b1], p[b2]];
     if (type === "mixed" && (males(teamA) !== 1 || males(teamB) !== 1)) continue;
-    const diff = Math.abs(teamA[0].level + teamA[1].level - teamB[0].level - teamB[1].level);
+    const lv = (m: Member) => balanceLevel(m.level);
+    const diff = Math.abs(lv(teamA[0]) + lv(teamA[1]) - lv(teamB[0]) - lv(teamB[1]));
     if (diff < bestDiff) {
       bestDiff = diff;
       best = [...teamA, ...teamB];

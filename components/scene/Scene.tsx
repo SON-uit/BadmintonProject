@@ -294,7 +294,8 @@ export default function Scene({ overlay, fitKey, insets, compact }: SceneProps) 
       camera={{ position: [0, 30, 36], fov: 42, near: 0.5, far: 600 }}
       onPointerMissed={() => clearSelection()}
     >
-      <fog attach="fog" args={[night ? "#13284d" : "#cfeeff", night ? 90 : 120, night ? 320 : 380]} />
+      {/* trong nhà thi đấu: không khí hơi mờ ấm, xa dần tối lại */}
+      <fog attach="fog" args={[night ? "#111827" : "#2a3448", 140, 420]} />
 
       {/* ban đêm: trời tối, đèn pha sân sáng ấm từ trên xuống */}
       <ambientLight intensity={night ? 0.32 : 1.15} color={night ? "#b9c8ff" : "#ffffff"} />

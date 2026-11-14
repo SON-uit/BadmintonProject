@@ -727,7 +727,7 @@ export default function Game() {
 
   return (
     <main
-      className="game-bg relative h-dvh w-screen select-none overflow-hidden bg-gradient-to-b from-sky-400 via-sky-300 to-sky-100 text-slate-800"
+      className="game-bg relative h-dvh w-screen select-none overflow-hidden bg-gradient-to-b from-[#1e293b] via-[#2a3448] to-[#3b475d] text-slate-800"
       data-compact={small}
       data-mobile={mobile}
       style={vars}

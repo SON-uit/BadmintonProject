@@ -256,7 +256,7 @@ function FinishDialog({ courtId, onClose }: { courtId: string; onClose: () => vo
 
 function LevelPicker({ value, onChange }: { value: Level; onChange: (level: Level) => void }) {
   return (
-    <div className="grid grid-cols-4 gap-1 sm:grid-cols-7" role="radiogroup" aria-label="Trình độ">
+    <div className="grid grid-cols-4 gap-1 sm:grid-cols-8" role="radiogroup" aria-label="Trình độ">
       {LEVELS.map((l) => {
         const active = value === l.value;
         return (

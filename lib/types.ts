@@ -1,6 +1,13 @@
 export type Gender = "male" | "female";
 
-export type Level = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+/** 1 → 7: trình từ thấp đến cao · 0: Gà Vãng Lai — khách đánh ghé, xếp được vào sân bất kỳ. */
+export type Level = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+/** Gà Vãng Lai: không xét trình khi xếp trận. */
+export const WALK_IN: Level = 0;
+export const isWalkIn = (level: Level) => level === WALK_IN;
+/** Trình dùng để chia đội cho cân: vãng lai coi như trình giữa (TBY-). */
+export const balanceLevel = (level: Level) => (level === WALK_IN ? 4 : level);
 
 /** Số thành viên tối đa của một buổi. */
 export const MAX_MEMBERS = 25;
@@ -23,6 +30,7 @@ export const LEVELS: LevelInfo[] = [
   { value: 5, code: "TBY", nick: "Gà Chiến", emoji: "🐔", color: "#a5b4fc" },
   { value: 6, code: "TBY+", nick: "Gà Đại Ca", emoji: "🐓", color: "#f9a8d4" },
   { value: 7, code: "TB", nick: "Gà Trùm", emoji: "👑", color: "#fbbf24" },
+  { value: 0, code: "Vãng lai", nick: "Gà Vãng Lai", emoji: "🐤", color: "#d6d3d1" },
 ];
 
 export const levelInfo = (level: Level): LevelInfo => LEVELS.find((l) => l.value === level) ?? LEVELS[0];

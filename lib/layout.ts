@@ -1,7 +1,8 @@
 /** Bố cục thế giới 3D (đơn vị: mét). Sân cầu lông đôi chuẩn 13.4 × 6.1. */
 export const COURT_W = 6.1;
 export const COURT_L = 13.4;
-export const COURT_MARGIN = 1.2;
+/** Thảm quanh sân (mét) — rộng rãi để sân trông thoáng, dễ chạm. */
+export const COURT_MARGIN = 1.6;
 
 /**
  * Ba kiểu xếp sân:
@@ -11,18 +12,18 @@ export const COURT_MARGIN = 1.2;
  */
 export const SINGLE_ROW_MAX = 8;
 const PORTRAIT_PER_ROW = 2;
-const GAP_X = 2.8;
+const GAP_X = 3.8;
 const COURT_PITCH = COURT_W + GAP_X;
 /** Khoảng cách tâm giữa hai hàng sân ở màn hình dọc (chừa chỗ cho nhãn sân). */
 const PORTRAIT_ROW_PITCH = COURT_L + COURT_MARGIN * 2 + 3.4;
 
 /** Khoảng cách giữa hai người chờ — đủ rộng để nhãn tên không đè lên nhau. */
-const QUEUE_DX = 3.4;
-const QUEUE_DZ = 2;
+const QUEUE_DX = 4.2;
+const QUEUE_DZ = 2.6;
 /** Khoảng trống giữa mép sân và hàng người chờ đầu tiên (giữa có hàng rào phân cách sảnh chờ). */
 const QUEUE_GAP = 4.2;
 /** Màn hình dọc: sảnh chờ lùi hẳn ra trước, tách biệt rõ khỏi dãy sân. */
-const QUEUE_GAP_PORTRAIT = 7;
+const QUEUE_GAP_PORTRAIT = 5.5;
 const queueZ0 = (portrait: boolean) => COURT_L / 2 + COURT_MARGIN + (portrait ? QUEUE_GAP_PORTRAIT : QUEUE_GAP);
 const QUEUE_Z0 = queueZ0(false);
 /** Số hàng tối đa của hàng chờ khi nó bị kẹp giữa hai dãy sân. */
