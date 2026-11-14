@@ -166,15 +166,42 @@ function TopBar({ barRef, onOpenStats, onFit }: { barRef: RefObject<HTMLElement 
   );
 }
 
-/** Thanh trên — điện thoại: chỉ logo + trạng thái, mọi nút chức năng nằm ở thanh dưới. */
+/**
+ * Thanh trên — điện thoại: một dải mỏng một dòng sát mép trên (logo nhỏ · trạng thái · giờ)
+ * để nhường tối đa chỗ cho sân. Mọi nút chức năng nằm ở thanh dưới.
+ */
 function MobileTopBar({ barRef }: { barRef: RefObject<HTMLElement | null> }) {
+  const courts = useGame((s) => s.courts);
+  const waiting = useGame((s) => s.queue.length);
+  const playing = courts.filter((c) => c.status === "playing").length;
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 15_000);
+    return () => window.clearInterval(t);
+  }, []);
+  const pad = (n: number) => String(n).padStart(2, "0");
   return (
     <header
       ref={barRef}
-      className="panel absolute inset-x-2 top-2 z-30 flex items-center gap-2 px-2.5 py-1.5"
-      style={{ marginTop: "env(safe-area-inset-top)" }}
+      className="absolute inset-x-0 top-0 z-30 flex h-8 items-center gap-1.5 border-b border-white/60 bg-white/80 px-2.5 text-xs font-bold text-slate-600 shadow-sm backdrop-blur-md box-content"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
-      <Logo subtitle={<CourtSummary />} />
+      <span className="text-base leading-none">🦊</span>
+      <span className="font-display truncate bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-sm font-extrabold italic text-transparent">
+        LINH CÁO
+      </span>
+      <span className="ml-auto flex shrink-0 items-center gap-2 tabular-nums">
+        <span title="Số sân">🏟️ {courts.length}</span>
+        <span className="text-orange-600" title="Đang đánh">
+          🏸 {playing}
+        </span>
+        <span className="text-violet-600" title="Đang chờ">
+          🪑 {waiting}
+        </span>
+        <span className="rounded-full bg-slate-800 px-2 py-0.5 text-white">
+          {pad(now.getHours())}:{pad(now.getMinutes())}
+        </span>
+      </span>
     </header>
   );
 }
@@ -396,7 +423,7 @@ function MobileCourtDock() {
   return (
     <div
       className="absolute left-1.5 z-20 flex flex-col items-start gap-1 overflow-y-auto p-0.5"
-      style={{ top: "calc(var(--hud-top) + 46px)", maxHeight: "calc(100dvh - var(--hud-top) - var(--hud-bottom) - 60px)" }}
+      style={{ top: "calc(var(--hud-top) + 6px)", maxHeight: "calc(100dvh - var(--hud-top) - var(--hud-bottom) - 20px)" }}
       aria-label="Bắt đầu / kết thúc trận"
     >
       {ready.map((c) => (
@@ -527,7 +554,7 @@ function Toasts() {
   return (
     <div
       className="pointer-events-none absolute inset-x-0 z-50 flex flex-col items-center gap-2 px-3"
-      style={{ top: "calc(var(--hud-top) + 52px)" }}
+      style={{ top: "calc(var(--hud-top) + var(--toast-gap))" }}
       aria-live="polite"
     >
       {toasts.map((t) => (
@@ -616,7 +643,7 @@ export default function Game() {
   const insets: HudInsets = useMemo(
     () => ({
       left: !mobile && panelOpen ? SIDE_PANEL_WIDTH : 0,
-      top: barBottom + 46, // chừa chỗ cho đồng hồ
+      top: barBottom + (mobile ? 4 : 46), // máy tính: chừa chỗ cho đồng hồ (điện thoại: giờ nằm trong thanh trên)
       // điện thoại: thanh điều hướng dưới · máy tính: dòng gợi ý (chỉ hiện trên màn hình rộng)
       bottom: mobile ? navHeight + 8 : viewport.w >= 1024 ? 44 : 10,
     }),
@@ -625,6 +652,7 @@ export default function Game() {
 
   const vars = {
     "--hud-top": `${barBottom}px`,
+    "--toast-gap": mobile ? "8px" : "52px",
     "--hud-left": `${insets.left}px`,
     "--hud-bottom": `${insets.bottom}px`,
   } as CSSProperties;
@@ -643,7 +671,7 @@ export default function Game() {
       </div>
 
       {mobile ? <MobileTopBar barRef={bar} /> : <TopBar barRef={bar} onOpenStats={() => setStatsOpen(true)} onFit={fit} />}
-      {!lobby && <Clock />}
+      {!mobile && <Clock />}
 
       {mobile ? (
         lobby && <MemberPanel variant="screen" open onOpenChange={() => setTab("court")} />
