@@ -225,7 +225,7 @@ function CourtLabel({ court }: { court: Court }) {
       </button>
       {playing ? (
         <button
-          className="btn btn-danger col-span-2 !py-1 !text-xs compact:!min-h-9 compact:!text-[13px]"
+          className="btn btn-danger col-span-2 !py-1 !text-xs compact:!min-h-9 compact:!text-[13px] mobile:hidden"
           aria-label={`Kết thúc trận ở ${court.name}`}
           onClick={() => openDialog({ kind: "finish", courtId: court.id })}
         >

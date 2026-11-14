@@ -2,6 +2,8 @@
 
 /* compact: giao diện thu gọn cho điện thoại — bật bằng data-compact trên <main> (xem Game.tsx) */
 @custom-variant compact (&:where([data-compact="true"], [data-compact="true"] *));
+/* mobile: giao diện điện thoại có thanh dưới + cột nút bắt đầu / kết thúc bên trái */
+@custom-variant mobile (&:where([data-mobile="true"], [data-mobile="true"] *));
 
 @theme {
   --font-sans: var(--font-be-vietnam), ui-sans-serif, system-ui, sans-serif;

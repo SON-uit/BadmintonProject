@@ -367,6 +367,69 @@ function ReadyDock({ side }: { side: "left" | "right" }) {
   );
 }
 
+function Elapsed({ since }: { since: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const s = Math.max(0, Math.floor((now - since) / 1000));
+  return (
+    <span className="tabular-nums">
+      {Math.floor(s / 60)}:{String(s % 60).padStart(2, "0")}
+    </span>
+  );
+}
+
+/**
+ * Điện thoại: cột nút gọn bên trái cho mọi sân cần thao tác —
+ * ▶ Bắt đầu (sân đủ người) và 🏁 Kết thúc (sân đang đánh, kèm thời gian). Mỗi nút chỉ một dòng.
+ */
+function MobileCourtDock() {
+  const courts = useGame((s) => s.courts);
+  const startMatch = useGame((s) => s.startMatch);
+  const openDialog = useGame((s) => s.openDialog);
+  const ready = courts.filter((c) => c.status === "idle" && c.slots.every(Boolean));
+  const playing = courts.filter((c) => c.status === "playing");
+  if (ready.length + playing.length === 0) return null;
+
+  return (
+    <div
+      className="absolute left-1.5 z-20 flex flex-col items-start gap-1 overflow-y-auto p-0.5"
+      style={{ top: "calc(var(--hud-top) + 46px)", maxHeight: "calc(100dvh - var(--hud-top) - var(--hud-bottom) - 60px)" }}
+      aria-label="Bắt đầu / kết thúc trận"
+    >
+      {ready.map((c) => (
+        <button
+          key={c.id}
+          onClick={() => startMatch(c.id)}
+          aria-label={`Bắt đầu trận ở ${c.name}`}
+          className="flex h-10 max-w-[9.5rem] cursor-pointer items-center gap-1.5 rounded-full bg-emerald-500 py-1 pl-1 pr-3 text-sm font-extrabold text-white shadow-md ring-2 ring-white transition active:scale-95"
+        >
+          <span className="grid size-8 shrink-0 animate-pulse place-items-center rounded-full bg-white text-sm text-emerald-600">▶</span>
+          <span className="truncate">{c.name}</span>
+        </button>
+      ))}
+      {playing.map((c) => (
+        <button
+          key={c.id}
+          onClick={() => openDialog({ kind: "finish", courtId: c.id })}
+          aria-label={`Kết thúc trận ở ${c.name}`}
+          className="flex h-10 max-w-[9.5rem] cursor-pointer items-center gap-1.5 rounded-full bg-rose-500 py-1 pl-1 pr-3 text-sm font-extrabold text-white shadow-md ring-2 ring-white transition active:scale-95"
+        >
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white text-sm">🏁</span>
+          <span className="min-w-0 leading-none">
+            <span className="block truncate">{c.name}</span>
+            <span className="block text-[10px] font-bold text-rose-100">
+              <Elapsed since={c.startedAt ?? Date.now()} />
+            </span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** Thanh hiện những người đang được bấm chọn + nút xếp nhanh vào từng sân còn chỗ. */
 function SelectionBar() {
   const selectedIds = useGame((s) => s.selectedIds);
@@ -570,6 +633,7 @@ export default function Game() {
     <main
       className="game-bg relative h-dvh w-screen select-none overflow-hidden bg-gradient-to-b from-sky-400 via-sky-300 to-sky-100 text-slate-800"
       data-compact={small}
+      data-mobile={mobile}
       style={vars}
     >
       {/* isolate: nhãn 3D (Html) không bao giờ đè lên HUD */}
@@ -587,7 +651,7 @@ export default function Game() {
         <MemberPanel variant="side" open={panelOpen} onOpenChange={setPanelOpen} />
       )}
 
-      {!lobby && <ReadyDock side={mobile ? "left" : "right"} />}
+      {mobile ? !lobby && <MobileCourtDock /> : <ReadyDock side="right" />}
       {mobile && !lobby && <CourtQuickActions onFit={fit} />}
       <SelectionBar />
 
