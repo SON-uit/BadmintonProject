@@ -38,7 +38,29 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
   const setMemberTimes = useGame((s) => s.setMemberTimes);
   const resetAttendance = useGame((s) => s.resetAttendance);
   const openDialog = useGame((s) => s.openDialog);
+  const checkInMany = useGame((s) => s.checkInMany);
+  const checkOutMany = useGame((s) => s.checkOutMany);
   const [query, setQuery] = useState("");
+  /** Chế độ chọn nhiều: null = tắt; bật thì bấm thẻ để chọn / bỏ chọn. */
+  const [picked, setPicked] = useState<Set<string> | null>(null);
+  const picking = picked !== null;
+  const togglePick = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const pickAll = (list: Member[]) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      const all = list.every((m) => next.has(m.id));
+      for (const m of list) {
+        if (all) next.delete(m.id);
+        else next.add(m.id);
+      }
+      return next;
+    });
 
   const q = fold(query);
   const match = (m: Member) => !q || fold(m.name).includes(q);
@@ -53,6 +75,43 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
   const shownAbsent = absent.filter(match);
   const shownPresent = present.filter(match);
   const shownLeft = left.filter(match);
+  // người đã chọn: ai chưa có mặt (chưa đến / đã về) thì điểm danh được, ai đang có mặt (không đang đánh) thì rời sân được
+  const pickedList = picked ? members.filter((m) => picked.has(m.id)) : [];
+  const toCheckIn = pickedList.filter((m) => !isPresent(m));
+  const toCheckOut = pickedList.filter((m) => isPresent(m) && !playingIds.has(m.id));
+  const confirmFor = (action: string, list: Member[]) =>
+    window.confirm(`${action} ${list.length} người sau?\n\n${list.map((m) => `• ${m.name}`).join("\n")}`);
+  const bulkCheckIn = () => {
+    if (!confirmFor("✅ Điểm danh", toCheckIn)) return;
+    checkInMany(toCheckIn.map((m) => m.id));
+    setPicked(null);
+  };
+  const bulkCheckOut = () => {
+    if (!confirmFor("🏠 Cho rời sân", toCheckOut)) return;
+    checkOutMany(toCheckOut.map((m) => m.id));
+    setPicked(null);
+  };
+  /** Nút "Chọn hết / Bỏ hết" cạnh tiêu đề mỗi nhóm (chỉ khi đang chọn nhiều). */
+  const pickAllButton = (list: Member[]) =>
+    picked && list.length > 0 ? (
+      <button className="btn btn-ghost !min-h-8 !px-2 !py-0.5 !text-xs normal-case tracking-normal" onClick={() => pickAll(list)}>
+        {list.every((m) => picked.has(m.id)) ? "Bỏ hết" : "Chọn hết"}
+      </button>
+    ) : null;
+  /** Ô tích ở đầu thẻ khi đang chọn nhiều. */
+  const pickMark = (id: string) =>
+    picked ? (
+      <span
+        aria-hidden
+        className={`grid size-6 shrink-0 place-items-center rounded-lg border-2 text-sm font-extrabold ${
+          picked.has(id) ? "border-pink-500 bg-pink-500 text-white" : "border-slate-300 bg-white text-transparent"
+        }`}
+      >
+        ✓
+      </span>
+    ) : null;
+  const pickRing = (id: string) => (picked?.has(id) ? "!border-pink-400 ring-2 ring-pink-300" : "");
+
   const today = new Date();
   const dateText = `${["CN", "T2", "T3", "T4", "T5", "T6", "T7"][today.getDay()]} ${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}`;
 
@@ -64,7 +123,28 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
       size="lg"
       onClose={onClose}
       footer={
+        picking ? (
+          <>
+            <span className="mr-auto self-center text-sm font-extrabold text-pink-600">Đã chọn {pickedList.length}</span>
+            <button className="btn btn-ghost" onClick={() => setPicked(null)}>
+              Huỷ chọn
+            </button>
+            <button className="btn btn-green whitespace-nowrap" disabled={toCheckIn.length === 0} onClick={bulkCheckIn}>
+              ✅ Điểm danh ({toCheckIn.length})
+            </button>
+            <button className="btn btn-primary whitespace-nowrap" disabled={toCheckOut.length === 0} onClick={bulkCheckOut}>
+              🏠 Rời sân ({toCheckOut.length})
+            </button>
+          </>
+        ) : (
         <>
+          <button
+            className="btn btn-ghost whitespace-nowrap"
+            title="Chọn nhiều người để điểm danh / cho rời sân một lần"
+            onClick={() => setPicked(new Set())}
+          >
+            ☑️ Chọn nhiều
+          </button>
           <button
             className="btn btn-ghost mr-auto whitespace-nowrap"
             title="Xóa giờ vào / ra của mọi người để điểm danh buổi mới"
@@ -79,6 +159,7 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
             Xong
           </button>
         </>
+        )
       }
     >
       {members.length === 0 ? (
@@ -100,8 +181,9 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
           />
 
           <section aria-label="Chưa điểm danh">
-            <h3 className="font-display mb-2 text-sm font-extrabold uppercase tracking-wide text-slate-600">
+            <h3 className="font-display mb-2 flex items-center justify-between gap-2 text-sm font-extrabold uppercase tracking-wide text-slate-600">
               ⏳ Chưa điểm danh · {shownAbsent.length}
+              {pickAllButton(shownAbsent)}
             </h3>
             {shownAbsent.length === 0 ? (
               <p className="rounded-2xl bg-emerald-50 px-3 py-3 text-center text-sm font-bold text-emerald-700">
@@ -112,18 +194,22 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
                 {shownAbsent.map((m) => (
                   <li key={m.id}>
                     <button
-                      onClick={() => checkIn(m.id)}
-                      aria-label={`Điểm danh ${m.name}`}
-                      className="flex min-h-16 w-full cursor-pointer items-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-left transition hover:border-emerald-400 hover:bg-emerald-50 active:scale-[0.98]"
+                      onClick={() => (picking ? togglePick(m.id) : checkIn(m.id))}
+                      aria-label={picking ? `Chọn ${m.name}` : `Điểm danh ${m.name}`}
+                      aria-pressed={picked ? picked.has(m.id) : undefined}
+                      className={`flex min-h-16 w-full cursor-pointer items-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-left transition hover:border-emerald-400 hover:bg-emerald-50 active:scale-[0.98] ${pickRing(m.id)}`}
                     >
+                      {pickMark(m.id)}
                       <Avatar member={m} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-base font-extrabold text-slate-900">{m.name}</span>
                         <span className="block truncate text-xs font-semibold text-slate-500">{levelInfo(m.level).code}</span>
                       </span>
-                      <span className="shrink-0 whitespace-nowrap rounded-xl bg-emerald-500 px-3 py-2 text-sm font-extrabold text-white shadow-[0_3px_0_0_rgb(0_0_0/0.18)]">
-                        ✅ Đến
-                      </span>
+                      {!picking && (
+                        <span className="shrink-0 whitespace-nowrap rounded-xl bg-emerald-500 px-3 py-2 text-sm font-extrabold text-white shadow-[0_3px_0_0_rgb(0_0_0/0.18)]">
+                          ✅ Đến
+                        </span>
+                      )}
                     </button>
                   </li>
                 ))}
@@ -133,14 +219,22 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
 
           {shownPresent.length > 0 && (
             <section aria-label="Đã có mặt">
-              <h3 className="font-display mb-2 text-sm font-extrabold uppercase tracking-wide text-emerald-600">
+              <h3 className="font-display mb-2 flex items-center justify-between gap-2 text-sm font-extrabold uppercase tracking-wide text-emerald-600">
                 🟢 Đã có mặt · {shownPresent.length}
+                {pickAllButton(shownPresent.filter((m) => !playingIds.has(m.id)))}
               </h3>
               <ul className="grid gap-1.5 sm:grid-cols-2">
                 {shownPresent.map((m) => {
                   const playing = playingIds.has(m.id);
                   return (
-                    <li key={m.id} className="flex min-h-14 items-center gap-2.5 rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-2.5 py-1.5">
+                    <li
+                      key={m.id}
+                      onClick={picking && !playing ? () => togglePick(m.id) : undefined}
+                      className={`flex min-h-14 items-center gap-2.5 rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-2.5 py-1.5 ${
+                        picking ? (playing ? "opacity-50" : "cursor-pointer") : ""
+                      } ${pickRing(m.id)}`}
+                    >
+                      {!playing && pickMark(m.id)}
                       <Avatar member={m} />
                       <span className="min-w-0 flex-1 leading-tight">
                         <span className="block truncate text-sm font-extrabold text-slate-900">{m.name}</span>
@@ -149,6 +243,8 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
                           {playing && <span className="text-orange-600"> · 🏸 đánh</span>}
                         </span>
                       </span>
+                      {!picking && (
+                      <>
                       <button
                         className="btn btn-ghost shrink-0 whitespace-nowrap !min-h-10 !px-2 !text-xs"
                         disabled={playing}
@@ -165,6 +261,8 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
                       >
                         🏠 Về
                       </button>
+                      </>
+                      )}
                     </li>
                   );
                 })}
@@ -174,10 +272,18 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
 
           {shownLeft.length > 0 && (
             <section aria-label="Đã về">
-              <h3 className="font-display mb-2 text-sm font-extrabold uppercase tracking-wide text-slate-500">🏠 Đã về · {shownLeft.length}</h3>
+              <h3 className="font-display mb-2 flex items-center justify-between gap-2 text-sm font-extrabold uppercase tracking-wide text-slate-500">
+                🏠 Đã về · {shownLeft.length}
+                {pickAllButton(shownLeft)}
+              </h3>
               <ul className="grid gap-1.5 sm:grid-cols-2">
                 {shownLeft.map((m) => (
-                  <li key={m.id} className="flex min-h-14 items-center gap-2.5 rounded-2xl border-2 border-dashed border-slate-200 px-2.5 py-1.5">
+                  <li
+                    key={m.id}
+                    onClick={picking ? () => togglePick(m.id) : undefined}
+                    className={`flex min-h-14 items-center gap-2.5 rounded-2xl border-2 border-dashed border-slate-200 px-2.5 py-1.5 ${picking ? "cursor-pointer" : ""} ${pickRing(m.id)}`}
+                  >
+                    {pickMark(m.id)}
                     <Avatar member={m} />
                     <span className="min-w-0 flex-1 leading-tight">
                       <span className="block truncate text-sm font-extrabold text-slate-600">{m.name}</span>
@@ -185,9 +291,11 @@ export default function AttendanceDialog({ onClose }: { onClose: () => void }) {
                         {fmtClock(m.checkInAt!)} – {fmtClock(m.checkOutAt!)}
                       </span>
                     </span>
-                    <button className="btn btn-green shrink-0 whitespace-nowrap !min-h-10 !px-2 !text-xs" title="Quay lại sân — vào sảnh chờ" onClick={() => checkIn(m.id)}>
-                      ↩️ Lại
-                    </button>
+                    {!picking && (
+                      <button className="btn btn-green shrink-0 whitespace-nowrap !min-h-10 !px-2 !text-xs" title="Quay lại sân — vào sảnh chờ" onClick={() => checkIn(m.id)}>
+                        ↩️ Lại
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>

@@ -92,6 +92,10 @@ interface GameState {
   checkIn: (memberId: string) => void;
   /** Xác nhận một người rời sân: chốt giờ ra, rời hàng chờ. Bị chặn khi người đó đang đánh. */
   checkOut: (memberId: string) => void;
+  /** Điểm danh nhiều người một lúc (bỏ qua ai đã có mặt). Trả về số người đã điểm danh. */
+  checkInMany: (memberIds: string[]) => number;
+  /** Cho nhiều người rời sân một lúc (bỏ qua ai đang đánh). Trả về số người đã rời. */
+  checkOutMany: (memberIds: string[]) => number;
   /** Sửa tay giờ vào / ra (bảng tính tiền). */
   setMemberTimes: (memberId: string, checkInAt: number | null, checkOutAt: number | null) => boolean;
   /** Buổi mới: xóa giờ vào / ra và khoản thêm của mọi người, giữ nguyên danh sách. */
@@ -370,6 +374,39 @@ export const useGame = create<GameState>()(
           queuedAt: stampQueued(s.queuedAt, [memberId]),
         });
         s.notify(`✅ ${member.name} đã điểm danh lúc ${fmtClock(member.checkInAt ?? now)} · vào sảnh chờ`, "success");
+      },
+
+      checkInMany: (memberIds) => {
+        const s = get();
+        const ids = new Set(memberIds.filter((id) => s.members.some((m) => m.id === id && !isPresent(m))));
+        if (ids.size === 0) return 0;
+        const now = Date.now();
+        const placed = (id: string) => s.queue.includes(id) || s.courts.some((c) => c.slots.includes(id));
+        const fresh = [...ids].filter((id) => !placed(id));
+        set({
+          members: s.members.map((m) => (ids.has(m.id) ? { ...m, checkInAt: m.checkInAt ?? now, checkOutAt: null } : m)),
+          queue: [...s.queue, ...fresh],
+          queuedAt: stampQueued(s.queuedAt, [...ids]),
+        });
+        s.notify(`✅ Đã điểm danh ${ids.size} người lúc ${fmtClock(now)} · vào sảnh chờ`, "success");
+        return ids.size;
+      },
+
+      checkOutMany: (memberIds) => {
+        const s = get();
+        const playingIds = new Set(s.courts.filter((c) => c.status === "playing").flatMap((c) => c.slots.filter((id): id is string => !!id)));
+        const targets = s.members.filter((m) => memberIds.includes(m.id) && isPresent(m));
+        const busy = targets.filter((m) => playingIds.has(m.id));
+        const ids = new Set(targets.filter((m) => !playingIds.has(m.id)).map((m) => m.id));
+        if (ids.size > 0) {
+          const now = Date.now();
+          let st: Pick<GameState, "queue" | "courts" | "selectedIds"> = { queue: s.queue, courts: s.courts, selectedIds: s.selectedIds };
+          for (const id of ids) st = detach(st, id);
+          set({ members: s.members.map((m) => (ids.has(m.id) ? { ...m, checkOutAt: now } : m)), ...st });
+          s.notify(`🏠 ${ids.size} người rời sân lúc ${fmtClock(now)}`, "info");
+        }
+        if (busy.length > 0) s.notify(`${busy.map((m) => m.name).join(", ")} đang đánh — kết thúc trận trước khi rời sân`, "error");
+        return ids.size;
       },
 
       checkOut: (memberId) => {

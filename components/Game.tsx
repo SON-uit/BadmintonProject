@@ -563,6 +563,7 @@ function SelectionBar() {
   const toggleSelect = useGame((s) => s.toggleSelect);
   const clearSelection = useGame((s) => s.clearSelection);
   const placeSelected = useGame((s) => s.placeSelected);
+  const checkOutMany = useGame((s) => s.checkOutMany);
 
   const selected = useMemo(() => {
     const byId = new Map(members.map((m) => [m.id, m]));
@@ -590,7 +591,17 @@ function SelectionBar() {
               <span className="opacity-80">✕</span>
             </button>
           ))}
-          <button className="btn btn-ghost ml-auto !px-2.5 !py-1 !text-xs" onClick={clearSelection}>
+          <button
+            className="btn btn-ghost ml-auto !px-2.5 !py-1 !text-xs"
+            title="Chốt giờ về (tính tiền) cho những người đang chọn"
+            onClick={() => {
+              const list = selected.map((m) => `• ${m.name}`).join("\n");
+              if (window.confirm(`🏠 Cho ${selected.length} người sau rời sân?\n\n${list}`)) checkOutMany(selected.map((m) => m.id));
+            }}
+          >
+            🏠 Rời sân
+          </button>
+          <button className="btn btn-ghost !px-2.5 !py-1 !text-xs" onClick={clearSelection}>
             ✕ Bỏ chọn
           </button>
         </div>
