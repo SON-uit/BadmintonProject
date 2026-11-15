@@ -1,0 +1,106 @@
+# 🏸 Hướng dẫn sử dụng Badminton Mate
+
+> Web giúp **host** xếp sân cầu lông đánh đôi: điểm danh → xếp trận → ghi đội thắng → tính tiền cuối buổi.
+> Dữ liệu **lưu ngay trên trình duyệt của máy đang dùng** — không cần đăng nhập.
+
+---
+
+## 🔁 Luồng một buổi đánh (tóm tắt)
+
+**① Thêm sân** → **② Thêm thành viên** → **③ Điểm danh** → **④ Xếp trận** → **⑤ Bắt đầu** → **⑥ Kết thúc + chọn đội thắng** → *(lặp ④–⑥)* → **⑦ Điểm danh ra về** → **⑧ Tính tiền**
+
+---
+
+## ① Chuẩn bị sân
+
+- Bấm **➕ Thêm sân** — mỗi lần bấm thêm 1 sân.
+- **Bấm vào tên sân** để đổi tên (vd: "Sân 3").
+- Xóa sân: bấm **🗑️** cạnh tên sân ở cột bên trái.
+  - ⚠️ **Sân đang đánh thì không xóa được** — phải kết thúc trận trước.
+
+## ② Thêm thành viên *(làm 1 lần, lần sau dùng lại)*
+
+- Mở **👤 Thành viên** (trên điện thoại: **Thêm → 👤 Thành viên**).
+- Nhập **tên**, chọn **giới tính** và **trình độ** → bấm **➕ Thêm**.
+- Có sẵn danh sách? Bấm **Dán nhiều tên cùng lúc →**, dán mỗi dòng một tên → **➕ Thêm cả danh sách**.
+- Tối đa **25 người**. Sửa / xóa bằng nút **✏️** / **🗑️** trên thẻ từng người.
+
+> 💡 **Trình độ** hiện bằng biệt danh "gà": 🐣 Gà Mới Vào Sân (Newbie) → 👑 Gà Trùm (TB). Đặt đúng trình để xếp trận tự động cân hơn.
+
+## ③ Điểm danh khi mọi người đến
+
+- Bấm **✅ Điểm danh** — con số trên nút là **số người chưa đến**.
+- Ai tới thì bấm **✓ Vào** → web **ghi giờ đến** và đưa người đó vào **Sảnh chờ**.
+- Bấm nhầm? Bấm **hủy điểm danh** ngay trên dòng của người đó.
+
+> 💡 **Giờ đến / giờ về** dùng để **tính tiền theo thời gian có mặt**, nên nhớ điểm danh đúng lúc.
+
+## ④ Xếp trận
+
+**Cách 1 – Tự động (khuyên dùng)**
+- Bấm **🎲 Xếp trận** (hoặc nút 🎲 vàng cạnh một sân trống).
+- Chọn lần lượt: **Sân** → **Thể loại** (Đôi nam / Đôi nữ / Đôi nam nữ) → **Tính chất trận**:
+  - 🔥 **Khô Máu** — 4 người cùng trình hoặc lệch tối đa 1 bậc
+  - 😎 **Giao Lưu** — 4 người cùng trình
+  - 🧘 **Dưỡng Sinh** — chỉ Newbie → Yếu
+- Web ưu tiên **người ít trận nhất, chờ lâu nhất**, và chia **2 đội cân trình**.
+- Không đủ người hợp lệ → web **báo lý do**, không xếp bừa.
+
+**Cách 2 – Thủ công**
+- **Bấm chọn tối đa 4 người** trong Sảnh chờ → **bấm vào sân** muốn xếp.
+- Hoặc **kéo tên / nhân vật thả vào sân**.
+- Muốn đổi đội: **kéo một người trong sân thả lên người khác** để hai người đổi chỗ.
+
+> 💡 Xếp nhầm? Bấm **↩️ Về sảnh chờ** để đưa người ở các sân **chưa bắt đầu** về lại.
+
+## ⑤ Bắt đầu trận
+
+- Sân **đủ 4 người** sẽ hiện nút **▶ Bắt đầu** màu xanh — **bấm thì trận mới chạy** (web không tự bắt đầu).
+- Nút sân chuyển sang màu đỏ **🏁** kèm **thời gian đã đánh**.
+
+## ⑥ Kết thúc trận
+
+- Bấm **🏁** ở sân đó → **bắt buộc chọn đội thắng** → xác nhận.
+- 4 người tự **quay về Sảnh chờ**, trận được ghi vào **📊 Thống kê**.
+- Tiếp tục **quay lại bước ④** cho trận sau.
+
+> 💡 **Sảnh chờ** luôn xếp theo thứ tự ưu tiên: **ít trận trước, bằng trận thì ai chờ lâu trước**.
+> Ai chờ quá **10 phút** hoặc được đánh ít hơn mọi người sẽ hiện **😤 / 😡** — nhắc host xếp họ vào.
+
+## ⑦ Điểm danh ra về
+
+- Ai về thì mở **✅ Điểm danh** (hoặc bấm **🚪** trên tên trong Sảnh chờ) → **chốt giờ về**.
+- ⚠️ **Đang đánh thì không về được** — kết thúc trận trước.
+
+## ⑧ Tính tiền cuối buổi
+
+- Bấm **💰 Tính tiền**.
+- Nhập **Tiền sân**, **Tiền cầu** (gõ tắt: `40` = 40.000đ).
+- Chỉnh **chênh lệch nam / nữ** nếu muốn nam đóng nhiều hơn.
+- **Tiền sân chia theo số phút có mặt**; tiền cầu chia **theo đầu người** hoặc **theo thời gian**.
+- Ai có khoản riêng (nước, thuê vợt…) → nhập ô **Thêm**, vd `40+20`.
+- Ai **quên điểm danh** → bấm **＋ giờ** hoặc **bấm vào tên / giờ** để sửa giờ đến, giờ về.
+- Xong → **xuất ảnh bill** và gửi qua **Zalo / Messenger**.
+
+---
+
+## 🧰 Chức năng hỗ trợ
+
+- **📊 Thống kê** — số trận, thắng/thua, tỉ lệ thắng, thời gian đánh của từng người + lịch sử trận hôm nay.
+- **🔗 Chia sẻ** — tạo **link** gửi sang máy khác; máy kia mở link là có **y hệt dữ liệu** (có thể kèm lịch sử trận). Đây là **bản chụp tại thời điểm tạo link**, không tự đồng bộ về sau.
+- **🔭 Toàn sân** — đưa camera về góc nhìn thấy hết các sân.
+- **🌙 / ☀️** — đổi giao diện tối / sáng.
+- **🗑️ Dọn dẹp** — xóa hết thành viên, xóa hết sân, hoặc **Bắt đầu buổi mới** (xóa giờ vào/ra, giữ danh sách thành viên).
+
+## 📱 Dùng trên điện thoại
+
+- Thanh dưới cùng có: **Sân · Sảnh chờ · Điểm danh · Xếp trận · Thêm** (các chức năng còn lại nằm trong **Thêm**).
+- **Chạm vào khu vực sân** để ẩn menu, xem sân rộng hơn; bấm **☰ Menu** để hiện lại.
+
+---
+
+## ✅ Mẹo cho host
+
+- **Buổi mới**: vào **🗑️ Dọn dẹp → Bắt đầu buổi mới** để reset giờ vào/ra, **không cần nhập lại thành viên**.
+- **Đổi máy / nhờ người khác cầm**: dùng **🔗 Chia sẻ** trước khi đưa.
+- **Không xóa dữ liệu trình duyệt** (hoặc dùng tab ẩn danh) — dữ liệu sẽ mất.
