@@ -6,12 +6,12 @@ import { billLineText, computeBill, fmtHour, fmtK, fmtVnd, formatExtras, genderW
 import { useGame } from "@/lib/store";
 import { GENDER_COLOR } from "@/lib/types";
 import { Modal, SectionTitle } from "./Modal";
+import { fromHHMM, TimeEditor, toHHMM } from "./TimeEditor";
 
-const pad = (n: number) => String(n).padStart(2, "0");
-const toHHMM = (ts: number) => {
-  const d = new Date(ts);
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
+/** Ô giờ trong bảng tiền — bấm để mở hộp sửa giờ. */
+const TIME_CHIP =
+  "w-full cursor-pointer rounded-lg border border-slate-200 bg-white px-1 py-1 text-center text-xs font-bold tabular-nums text-slate-900 transition hover:border-sky-400 active:scale-95";
+
 /** Nền tảng để chọn cách lưu ảnh phù hợp. */
 function platform(): "ios" | "android" | "inapp" | "desktop" {
   if (typeof navigator === "undefined") return "desktop";
@@ -22,15 +22,6 @@ function platform(): "ios" | "android" | "inapp" | "desktop" {
   if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "ios";
   if (/Android/i.test(ua)) return "android";
   return "desktop";
-}
-
-/** "21:30" → mốc thời gian cùng ngày với `base`. */
-function fromHHMM(value: string, base: number): number | null {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(value);
-  if (!m) return null;
-  const d = new Date(base);
-  d.setHours(Number(m[1]), Number(m[2]), 0, 0);
-  return d.getTime();
 }
 
 /** Ô nhập tiền VNĐ: tự thêm dấu chấm phân cách hàng nghìn khi gõ (600000 → 600.000). */
@@ -192,8 +183,10 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
   const extras = useGame((s) => s.extras);
   const setBill = useGame((s) => s.setBill);
   const setExtra = useGame((s) => s.setExtra);
-  const setMemberTimes = useGame((s) => s.setMemberTimes);
   const notify = useGame((s) => s.notify);
+  /** Người đang được sửa giờ đến / về. */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editing = editingId ? members.find((m) => m.id === editingId) : undefined;
   const [now] = useState(() => Date.now());
   const [endText, setEndText] = useState(() => toHHMM(now));
   const [busy, setBusy] = useState(false);
@@ -220,9 +213,10 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
   const male = genderWeight("male", bill.genderDiff);
   const diff = result.collected - result.cost;
   const dateText = new Date(now).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const title = `🦊 Linh Cáo Badminton · Tiền sân ${dateText}`;
+  const title = `🏸 Badminton Mate · Tiền sân ${dateText}`;
   const fileName = `tien-san-${dateText.replace(/\//g, "-")}.png`;
-  const absent = members.filter((m) => m.checkInAt === null).length;
+  const absentList = members.filter((m) => m.checkInAt === null);
+  const absent = absentList.length;
 
   const text = [title, ...result.lines.map(billLineText), `Tổng: ${fmtVnd(result.grandTotal)}đ`].join("\n");
 
@@ -429,44 +423,36 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
                     <tr key={m.id} className="bg-slate-100 font-bold text-slate-800">
                       <td className="rounded-l-xl px-1 py-1 text-center text-xs text-slate-400">{i + 1}</td>
                       <td className="px-1">
-                        <span className="flex items-center gap-1.5">
+                        <button
+                          className="flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-0.5 py-1 text-left hover:bg-white"
+                          onClick={() => setEditingId(m.id)}
+                          title="Sửa giờ đến / về"
+                        >
                           <span className="size-2.5 shrink-0 rounded-full" style={{ background: GENDER_COLOR[m.gender] }} />
                           <span className="truncate">{m.name}</span>
-                        </span>
+                          <span className="ml-auto shrink-0 text-xs opacity-70" aria-hidden>
+                            ✏️
+                          </span>
+                        </button>
                       </td>
                       <td className="px-1">
-                        <input
-                          type="time"
-                          value={toHHMM(line.from)}
-                          aria-label={`Giờ vào của ${m.name}`}
-                          onChange={(e) => {
-                            const t = fromHHMM(e.target.value, line.from);
-                            if (t !== null) setMemberTimes(m.id, t, m.checkOutAt);
-                          }}
-                          className="w-full select-text rounded-lg border border-slate-200 bg-white px-1 py-0.5 text-xs font-bold text-slate-900"
-                        />
+                        <button
+                          className={TIME_CHIP}
+                          onClick={() => setEditingId(m.id)}
+                          aria-label={`Giờ đến của ${m.name}: ${toHHMM(line.from)} — bấm để sửa`}
+                        >
+                          {toHHMM(line.from)}
+                        </button>
                       </td>
                       <td className="px-1">
-                        {line.open ? (
-                          <button
-                            className="w-full rounded-lg border border-dashed border-emerald-400 px-1 py-0.5 text-[11px] font-bold text-emerald-700"
-                            title="Đang ở sân — bấm để chốt giờ ra bằng giờ kết thúc buổi"
-                            onClick={() => setMemberTimes(m.id, line.from, endAt)}
-                          >
-                            ở sân · {fmtHour(line.to)}
-                          </button>
-                        ) : (
-                          <input
-                            type="time"
-                            value={toHHMM(line.to)}
-                            aria-label={`Giờ ra của ${m.name}`}
-                            onChange={(e) => {
-                              const t = fromHHMM(e.target.value, line.from);
-                              if (t !== null) setMemberTimes(m.id, line.from, t);
-                            }}
-                            className="w-full select-text rounded-lg border border-slate-200 bg-white px-1 py-0.5 text-xs font-bold text-slate-900"
-                          />
-                        )}
+                        <button
+                          className={`${TIME_CHIP} ${line.open ? "!border-dashed !border-emerald-400 !text-emerald-700" : ""}`}
+                          onClick={() => setEditingId(m.id)}
+                          title={line.open ? `Chưa về — tạm tính tới ${fmtHour(line.to)}` : undefined}
+                          aria-label={`Giờ về của ${m.name}: ${line.open ? "còn ở sân" : toHHMM(line.to)} — bấm để sửa`}
+                        >
+                          {line.open ? `ở sân · ${fmtHour(line.to)}` : toHHMM(line.to)}
+                        </button>
                       </td>
                       <td className="px-1 text-right tabular-nums text-slate-500">{line.minutes}</td>
                       <td className="px-1 text-right text-xs tabular-nums text-slate-500">{fmtVnd(line.court)}</td>
@@ -504,7 +490,29 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
             <span className="rounded-full bg-emerald-500 px-3 py-1 text-white">Tổng thu: {fmtVnd(result.grandTotal)}đ</span>
           </div>
         )}
+        {result.lines.length > 0 && (
+          <p className="mt-2 text-[11px] font-semibold text-slate-500">✏️ Bấm vào tên hoặc giờ để sửa giờ đến / giờ về.</p>
+        )}
+        {absent > 0 && (
+          <div className="mt-3 rounded-2xl border-2 border-dashed border-slate-200 px-3 py-2">
+            <p className="text-xs font-bold text-slate-600">Chưa điểm danh ({absent}) — không tính tiền. Quên điểm danh thì bấm tên để thêm giờ:</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {absentList.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => setEditingId(m.id)}
+                  className="flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full bg-slate-100 px-3 text-xs font-bold text-slate-700 transition hover:bg-sky-50 active:scale-95"
+                >
+                  <span className="size-2 rounded-full" style={{ background: GENDER_COLOR[m.gender] }} />
+                  {m.name}
+                  <span className="text-sky-600">＋ giờ</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
+      {editing && <TimeEditor member={editing} endAt={endAt} onClose={() => setEditingId(null)} />}
 
       {result.lines.length > 0 && (
         <section>

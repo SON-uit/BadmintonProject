@@ -10,7 +10,7 @@ import Scene, { type HudInsets } from "./scene/Scene";
 import { SharedImportPrompt } from "./ShareDialog";
 import StatsPanel from "./StatsPanel";
 
-export const BRAND = "LINH CÁO BADMINTON";
+export const BRAND = "BADMINTON MATE";
 
 /** Dưới ngưỡng này giao diện chuyển sang kiểu điện thoại: tab Sân / Sảnh chờ + thanh điều hướng dưới. */
 const MOBILE_BREAKPOINT = 768;
@@ -65,7 +65,7 @@ function Logo({ subtitle }: { subtitle: ReactNode }) {
   return (
     <div className="flex min-w-0 items-center gap-2 pr-1">
       <span className="sport-stripes grid size-10 shrink-0 -rotate-6 place-items-center rounded-xl bg-gradient-to-br from-orange-400 to-pink-500 text-2xl shadow-md md:size-11 md:rounded-2xl">
-        🦊
+        🏸
       </span>
       <div className="min-w-0 leading-none">
         <h1 className="font-display truncate bg-gradient-to-r from-orange-500 via-pink-500 to-sky-500 bg-clip-text pr-1 text-base font-extrabold italic tracking-wide text-transparent md:text-xl">
@@ -210,11 +210,11 @@ function MobileTopBar({
       <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-[#fb923c] via-[#ec4899] to-[#38bdf8]" />
 
       <span className="grid size-9 shrink-0 -rotate-6 place-items-center rounded-xl bg-gradient-to-br from-[#fb923c] to-[#ec4899] text-xl shadow-md">
-        🦊
+        🏸
       </span>
       <span className="min-w-0 leading-none">
-        <span className="font-display block truncate text-lg font-extrabold tracking-wide text-[#ffffff]">LINH CÁO</span>
-        <span className="mt-0.5 block text-[10px] font-extrabold tracking-[0.28em] text-[#fdba74]">BADMINTON</span>
+        <span className="font-display block truncate text-lg font-extrabold tracking-wide text-[#ffffff]">BADMINTON</span>
+        <span className="mt-0.5 block text-[10px] font-extrabold tracking-[0.28em] text-[#fdba74]">MATE</span>
       </span>
 
       <span className="ml-auto flex shrink-0 items-stretch gap-1">

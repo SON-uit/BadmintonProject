@@ -16,11 +16,11 @@ const baloo = Baloo_2({
 });
 
 export const metadata: Metadata = {
-  title: "Linh Cáo Badminton – Xếp sân cầu lông",
+  title: "Badminton Mate – Xếp sân cầu lông",
   description: "Xếp sân đánh đôi cầu lông dạng game 3D: điểm danh, sảnh chờ, kéo thả, xếp ngẫu nhiên, tính tiền.",
-  applicationName: "Linh Cáo Badminton",
+  applicationName: "Badminton Mate",
   // "Thêm vào màn hình chính" trên iPhone: mở toàn màn hình như app
-  appleWebApp: { capable: true, title: "Linh Cáo", statusBarStyle: "black-translucent" },
+  appleWebApp: { capable: true, title: "Badminton Mate", statusBarStyle: "black-translucent" },
   formatDetection: { telephone: false },
 };
 

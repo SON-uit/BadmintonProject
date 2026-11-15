@@ -181,9 +181,10 @@ function portraitQueueLayout(count: number, totalCourts: number): QueueLayout {
 
 /** Thảm hàng chờ: rộng theo dãy sân, tự thêm cột để không tràn vào dãy sân phía trước. */
 export function queueLayout(count: number, totalCourts: number, portrait = false): QueueLayout {
-  if (portrait) return portraitQueueLayout(count, totalCourts);
+  // chưa có sân nào thì không có gì để ôm chữ U: xếp lưới như thường
+  if (portrait && totalCourts > 0) return portraitQueueLayout(count, totalCourts);
   const twoRows = isTwoRows(totalCourts, portrait);
-  const width = Math.max(widestRow(totalCourts, portrait) * COURT_PITCH - 2, 20);
+  const width = Math.max(widestRow(totalCourts, portrait) * COURT_PITCH - 2, portrait ? 14 : 20);
   let cols = Math.max(1, Math.floor((width - 1.2) / QUEUE_DX));
   // kẹp giữa hai dãy sân thì không thêm hàng được nữa: thêm cột, đứng sát nhau hơn
   if (twoRows) cols = Math.max(cols, Math.ceil(count / QUEUE_ROWS_BETWEEN));
