@@ -6,6 +6,7 @@ import * as THREE from "three";
 import type { ArenaBounds } from "@/lib/layout";
 import { matchesOfDay } from "@/lib/logic";
 import { useGame } from "@/lib/store";
+import { drawFox } from "../FoxMark";
 import { TIER_DEPTH, TIERS } from "./Crowd";
 
 /** Bề dày khán đài tính từ mép sàn đấu. */
@@ -149,7 +150,14 @@ function Scoreboard({ x, z, width }: { x: number; z: number; width: number }) {
       title.addColorStop(1, "#38d9f5");
       ctx.fillStyle = title;
       ctx.font = `800 ${Math.round(h * 0.34)}px ${family}`;
-      ctx.fillText("🏸 LINH CÁO BADMINTON 🏸", w / 2, h * 0.3, w * 0.94); // maxWidth: tên dài tự co chữ cho vừa bảng
+      // logo cáo hai bên tên; tên dài tự co chữ (maxWidth) để chừa chỗ cho logo
+      const fox = h * 0.4;
+      const gap = fox * 0.25;
+      const maxText = w * 0.94 - 2 * (fox + gap);
+      const textW = Math.min(ctx.measureText("LINH CÁO BADMINTON").width, maxText);
+      ctx.fillText("LINH CÁO BADMINTON", w / 2, h * 0.3, maxText);
+      drawFox(ctx, w / 2 - textW / 2 - gap - fox / 2, h * 0.28, fox);
+      drawFox(ctx, w / 2 + textW / 2 + gap + fox / 2, h * 0.28, fox);
 
       const stats: [string, string, string][] = [
         [String(playing), "ĐANG ĐÁNH", "#ff8a3d"],

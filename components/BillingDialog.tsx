@@ -4,9 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { billLineText, computeBill, fmtHour, fmtK, fmtVnd, formatExtras, genderWeight, parseVnd, type Bill, type BillSettings } from "@/lib/billing";
 import { useGame } from "@/lib/store";
-import { GENDER_COLOR } from "@/lib/types";
+import { GENDER_COLOR, type Member } from "@/lib/types";
+
+const DAY = 24 * 60 * 60_000;
 import { Modal, SectionTitle } from "./Modal";
-import { fromHHMM, TimeEditor, toHHMM } from "./TimeEditor";
+import { fromHHMM, TimeEditor, TimeInput, toHHMM } from "./TimeEditor";
 
 /** Ô giờ trong bảng tiền — bấm để mở hộp sửa giờ. */
 const TIME_CHIP =
@@ -187,6 +189,15 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
   /** Người đang được sửa giờ đến / về. */
   const [editingId, setEditingId] = useState<string | null>(null);
   const editing = editingId ? members.find((m) => m.id === editingId) : undefined;
+  const setMemberTimes = useGame((s) => s.setMemberTimes);
+  /** Lưu giờ gõ thẳng trong bảng. `toText` null = còn ở sân; giờ về nhỏ hơn giờ đến = qua nửa đêm. */
+  const saveTimes = (m: Member, fromText: string, toText: string | null) => {
+    const base = m.checkInAt ?? now;
+    const from = fromHHMM(fromText, base) ?? base;
+    let to = toText === null ? null : fromHHMM(toText, from);
+    if (to !== null && to < from) to += DAY;
+    setMemberTimes(m.id, from, to);
+  };
   const [now] = useState(() => Date.now());
   const [endText, setEndText] = useState(() => toHHMM(now));
   const [busy, setBusy] = useState(false);
@@ -213,7 +224,7 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
   const male = genderWeight("male", bill.genderDiff);
   const diff = result.collected - result.cost;
   const dateText = new Date(now).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const title = `🏸 Linh Cáo Badminton · Tiền sân ${dateText}`;
+  const title = `🦊 Linh Cáo Badminton · Tiền sân ${dateText}`;
   const fileName = `tien-san-${dateText.replace(/\//g, "-")}.png`;
   const absentList = members.filter((m) => m.checkInAt === null);
   const absent = absentList.length;
@@ -380,11 +391,10 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
         />
         <label className="block">
           <span className="text-xs font-bold text-slate-600">Giờ kết thúc buổi</span>
-          <input
-            type="time"
+          <TimeInput
             value={endText}
-            onChange={(e) => setEndText(e.target.value)}
-            aria-label="Giờ kết thúc buổi"
+            onCommit={(v) => v && setEndText(v)}
+            ariaLabel="Giờ kết thúc buổi"
             className="mt-0.5 w-full select-text rounded-2xl border-2 border-slate-200 bg-white px-3 py-1.5 text-base font-extrabold text-slate-900 outline-none focus:border-orange-400"
           />
         </label>
@@ -436,23 +446,26 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
                         </button>
                       </td>
                       <td className="px-1">
-                        <button
+                        <TimeInput
                           className={TIME_CHIP}
-                          onClick={() => setEditingId(m.id)}
-                          aria-label={`Giờ đến của ${m.name}: ${toHHMM(line.from)} — bấm để sửa`}
-                        >
-                          {toHHMM(line.from)}
-                        </button>
+                          value={toHHMM(line.from)}
+                          onCommit={(v) => v && saveTimes(m, v, line.open ? null : toHHMM(line.to))}
+                          onPasteRange={(a, b) => saveTimes(m, a, b)}
+                          ariaLabel={`Giờ đến của ${m.name}`}
+                          title="Gõ hoặc dán giờ đến (vd 19:30). Dán “19:30 - 21:45” để điền cả giờ đến và giờ về"
+                        />
                       </td>
                       <td className="px-1">
-                        <button
-                          className={`${TIME_CHIP} ${line.open ? "!border-dashed !border-emerald-400 !text-emerald-700" : ""}`}
-                          onClick={() => setEditingId(m.id)}
-                          title={line.open ? `Chưa về — tạm tính tới ${fmtHour(line.to)}` : undefined}
-                          aria-label={`Giờ về của ${m.name}: ${line.open ? "còn ở sân" : toHHMM(line.to)} — bấm để sửa`}
-                        >
-                          {line.open ? `ở sân · ${fmtHour(line.to)}` : toHHMM(line.to)}
-                        </button>
+                        <TimeInput
+                          className={`${TIME_CHIP} ${line.open ? "!border-dashed !border-emerald-400 placeholder:!text-emerald-700" : ""}`}
+                          value={line.open ? "" : toHHMM(line.to)}
+                          allowEmpty
+                          placeholder={line.open ? `ở sân · ${fmtHour(line.to)}` : "hh:mm"}
+                          onCommit={(v) => saveTimes(m, toHHMM(line.from), v)}
+                          onPasteRange={(a, b) => saveTimes(m, a, b)}
+                          ariaLabel={`Giờ về của ${m.name}`}
+                          title={`Gõ hoặc dán giờ về (vd 21:45). Xóa trống = còn ở sân, tạm tính tới ${fmtHour(line.to)}`}
+                        />
                       </td>
                       <td className="px-1 text-right tabular-nums text-slate-500">{line.minutes}</td>
                       <td className="px-1 text-right text-xs tabular-nums text-slate-500">{fmtVnd(line.court)}</td>
@@ -491,7 +504,9 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
           </div>
         )}
         {result.lines.length > 0 && (
-          <p className="mt-2 text-[11px] font-semibold text-slate-500">✏️ Bấm vào tên hoặc giờ để sửa giờ đến / giờ về.</p>
+          <p className="mt-2 text-[11px] font-semibold text-slate-500">
+            🕒 Gõ hoặc dán giờ thẳng vào ô Vào / Ra (vd 21:30, 21h30, 2130; dán “19:30 - 21:45” điền cả hai). Xóa trống ô Ra = còn ở sân. ✏️ Bấm tên để chỉnh chi tiết (±5′, bỏ tính tiền…).
+</p>
         )}
         {absent > 0 && (
           <div className="mt-3 rounded-2xl border-2 border-dashed border-slate-200 px-3 py-2">

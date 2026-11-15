@@ -210,8 +210,8 @@ function MobileTopBar({
       {/* dải màu thương hiệu dưới đáy */}
       <span className="pointer-events-none absolute inset-x-0 bottom-0 h-[3px] bg-gradient-to-r from-[#fb923c] via-[#ec4899] to-[#38bdf8]" />
 
-      <span className="grid size-9 shrink-0 -rotate-6 place-items-center rounded-xl bg-gradient-to-br from-[#fb923c] to-[#ec4899] text-xl shadow-md">
-        🏸
+      <span className="grid size-9 shrink-0 -rotate-6 place-items-center rounded-xl bg-gradient-to-br from-[#fb923c] to-[#ec4899] shadow-md">
+        <FoxMark className="size-7" />
       </span>
       <span className="min-w-0 leading-none">
         <span className="font-display block truncate text-lg font-extrabold tracking-wide text-[#ffffff]">LINH CÁO</span>

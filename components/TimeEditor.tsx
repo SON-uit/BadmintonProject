@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useGame } from "@/lib/store";
 import { GENDER_COLOR, type Member } from "@/lib/types";
@@ -15,9 +15,126 @@ export const toHHMM = (ts: number) => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+/**
+ * Đọc giờ gõ / dán tay theo nhiều kiểu → "HH:MM" (null nếu không hợp lệ).
+ * Nhận: "21:30", "21h30", "21.30", "21,30", "21g30", "21h", "21", "2130", "930", "9:5".
+ */
+export function parseTime(text: string): string | null {
+  const t = text.trim().toLowerCase().replace(/\s+/g, "");
+  let h: number;
+  let min: number;
+  const sep = /^(\d{1,2})[:h.,g](\d{1,2})?(p|ph|phút)?$/.exec(t);
+  if (sep) {
+    h = Number(sep[1]);
+    min = sep[2] ? Number(sep[2]) : 0;
+  } else if (/^\d{1,4}$/.test(t)) {
+    // chỉ có số: 1–2 chữ số là giờ, 3–4 chữ số là giờ + phút (930 → 09:30, 2130 → 21:30)
+    h = t.length <= 2 ? Number(t) : Number(t.slice(0, -2));
+    min = t.length <= 2 ? 0 : Number(t.slice(-2));
+  } else {
+    return null;
+  }
+  if (h > 23 || min > 59) return null;
+  return `${pad(h)}:${pad(min)}`;
+}
+
+/** Tìm các mốc giờ trong một đoạn chữ dán vào, vd "19:30 - 21:45" → ["19:30", "21:45"]. */
+function timesIn(text: string): string[] {
+  return (text.match(/\d{1,2}\s*[:h.]\s*\d{2}/gi) ?? []).map(parseTime).filter((v): v is string => v !== null);
+}
+
+/**
+ * Ô nhập giờ dạng chữ hh:mm — gõ, sao chép, dán được (khác ô type="time" của trình duyệt).
+ * Chỉ lưu khi rời ô / bấm Enter; gõ sai thì báo lỗi và trả lại giờ cũ.
+ */
+export function TimeInput({
+  value,
+  onCommit,
+  onPasteRange,
+  allowEmpty,
+  placeholder = "hh:mm",
+  ariaLabel,
+  title,
+  className,
+}: {
+  value: string;
+  /** `null` = người dùng xóa trống ô (chỉ khi `allowEmpty`). */
+  onCommit: (value: string | null) => void;
+  /** Dán một đoạn có 2 mốc giờ (vd "19:30 - 21:45") → nhận cả hai. */
+  onPasteRange?: (from: string, to: string) => void;
+  allowEmpty?: boolean;
+  placeholder?: string;
+  ariaLabel: string;
+  title?: string;
+  className?: string;
+}) {
+  const notify = useGame((s) => s.notify);
+  /** null = không đang sửa (hiện `value`). */
+  const [draft, setDraft] = useState<string | null>(null);
+  const cancelRef = useRef(false);
+
+  const commit = (text: string) => {
+    setDraft(null);
+    if (cancelRef.current) {
+      cancelRef.current = false;
+      return;
+    }
+    const t = text.trim();
+    if (t === value) return;
+    if (!t) {
+      if (allowEmpty) onCommit(null);
+      return;
+    }
+    const hhmm = parseTime(t);
+    if (!hhmm) {
+      notify(`“${t}” không phải giờ hợp lệ — nhập dạng hh:mm, vd 21:30`, "error");
+      return;
+    }
+    if (hhmm !== value) onCommit(hhmm);
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      spellCheck={false}
+      value={draft ?? value}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      title={title ?? "Gõ hoặc dán giờ dạng hh:mm (vd 21:30, 21h30, 2130) rồi Enter"}
+      onFocus={(e) => {
+        setDraft(value);
+        e.currentTarget.select();
+      }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={(e) => commit(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          cancelRef.current = true;
+          e.currentTarget.blur();
+        }
+      }}
+      onPaste={(e) => {
+        if (!onPasteRange) return;
+        const found = timesIn(e.clipboardData.getData("text"));
+        if (found.length < 2) return;
+        e.preventDefault();
+        cancelRef.current = true;
+        e.currentTarget.blur();
+        onPasteRange(found[0], found[1]);
+      }}
+      className={className}
+    />
+  );
+}
+
 /** "21:30" → mốc thời gian cùng ngày với `base`. */
 export function fromHHMM(value: string, base: number): number | null {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(value);
+  const hhmm = parseTime(value);
+  const m = hhmm && /^(\d{2}):(\d{2})$/.exec(hhmm);
   if (!m) return null;
   const d = new Date(base);
   d.setHours(Number(m[1]), Number(m[2]), 0, 0);
@@ -56,11 +173,10 @@ function TimeField({
   return (
     <fieldset disabled={disabled} className={`space-y-1.5 ${disabled ? "opacity-40" : ""}`}>
       <legend className="mb-1 text-xs font-extrabold uppercase tracking-wide text-slate-600">{label}</legend>
-      <input
-        type="time"
+      <TimeInput
         value={value}
-        onChange={(e) => e.target.value && onChange(e.target.value)}
-        aria-label={label}
+        onCommit={(v) => v && onChange(v)}
+        ariaLabel={label}
         className="w-full select-text rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-center text-2xl font-extrabold tabular-nums text-slate-900 outline-none focus:border-orange-400"
       />
       <div className="flex gap-1.5">
