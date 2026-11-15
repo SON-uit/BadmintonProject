@@ -62,7 +62,7 @@ export function ShareDialog({ onClose }: { onClose: () => void }) {
   const nativeShare = async () => {
     if (!link) return;
     try {
-      await navigator.share({ title: "Badminton Mate", text: "Dữ liệu buổi đánh cầu — mở link để nhập vào máy bạn", url: link });
+      await navigator.share({ title: "Linh Cáo Badminton", text: "Dữ liệu buổi đánh cầu — mở link để nhập vào máy bạn", url: link });
     } catch {
       /* người dùng huỷ */
     }

@@ -1,4 +1,4 @@
-# 🏸 Hướng dẫn sử dụng Badminton Mate
+# 🏸 Hướng dẫn sử dụng Linh Cáo Badminton
 
 > Web giúp **host** xếp sân cầu lông đánh đôi: điểm danh → xếp trận → ghi đội thắng → tính tiền cuối buổi.
 > Dữ liệu **lưu ngay trên trình duyệt của máy đang dùng** — không cần đăng nhập.

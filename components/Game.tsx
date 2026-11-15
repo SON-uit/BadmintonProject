@@ -10,7 +10,7 @@ import Scene, { type HudInsets } from "./scene/Scene";
 import { SharedImportPrompt } from "./ShareDialog";
 import StatsPanel from "./StatsPanel";
 
-export const BRAND = "BADMINTON MATE";
+export const BRAND = "LINH CÁO BADMINTON";
 
 /** Dưới ngưỡng này giao diện chuyển sang kiểu điện thoại: tab Sân / Sảnh chờ + thanh điều hướng dưới. */
 const MOBILE_BREAKPOINT = 768;
@@ -213,8 +213,8 @@ function MobileTopBar({
         🏸
       </span>
       <span className="min-w-0 leading-none">
-        <span className="font-display block truncate text-lg font-extrabold tracking-wide text-[#ffffff]">BADMINTON</span>
-        <span className="mt-0.5 block text-[10px] font-extrabold tracking-[0.28em] text-[#fdba74]">MATE</span>
+        <span className="font-display block truncate text-lg font-extrabold tracking-wide text-[#ffffff]">LINH CÁO</span>
+        <span className="mt-0.5 block text-[10px] font-extrabold tracking-[0.28em] text-[#fdba74]">BADMINTON</span>
       </span>
 
       <span className="ml-auto flex shrink-0 items-stretch gap-1">

@@ -213,7 +213,7 @@ export default function BillingDialog({ onClose }: { onClose: () => void }) {
   const male = genderWeight("male", bill.genderDiff);
   const diff = result.collected - result.cost;
   const dateText = new Date(now).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const title = `🏸 Badminton Mate · Tiền sân ${dateText}`;
+  const title = `🏸 Linh Cáo Badminton · Tiền sân ${dateText}`;
   const fileName = `tien-san-${dateText.replace(/\//g, "-")}.png`;
   const absentList = members.filter((m) => m.checkInAt === null);
   const absent = absentList.length;

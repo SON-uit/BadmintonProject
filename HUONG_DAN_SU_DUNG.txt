@@ -1,4 +1,4 @@
-🏸 HƯỚNG DẪN SỬ DỤNG BADMINTON MATE
+🏸 HƯỚNG DẪN SỬ DỤNG LINH CÁO BADMINTON
 ====================================
 
 Web giúp host xếp sân cầu lông đánh đôi: điểm danh → xếp trận → ghi đội thắng → tính tiền cuối buổi.

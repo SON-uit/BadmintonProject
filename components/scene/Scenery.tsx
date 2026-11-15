@@ -149,7 +149,7 @@ function Scoreboard({ x, z, width }: { x: number; z: number; width: number }) {
       title.addColorStop(1, "#38d9f5");
       ctx.fillStyle = title;
       ctx.font = `800 ${Math.round(h * 0.34)}px ${family}`;
-      ctx.fillText("🏸 BADMINTON MATE 🏸", w / 2, h * 0.3, w * 0.94); // maxWidth: tên dài tự co chữ cho vừa bảng
+      ctx.fillText("🏸 LINH CÁO BADMINTON 🏸", w / 2, h * 0.3, w * 0.94); // maxWidth: tên dài tự co chữ cho vừa bảng
 
       const stats: [string, string, string][] = [
         [String(playing), "ĐANG ĐÁNH", "#ff8a3d"],
