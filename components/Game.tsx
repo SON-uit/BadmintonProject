@@ -5,6 +5,7 @@ import { matchesOfDay } from "@/lib/logic";
 import { useGame } from "@/lib/store";
 import { GENDER_COLOR, vibeInfo } from "@/lib/types";
 import Dialogs from "./Dialogs";
+import { FoxMark } from "./FoxMark";
 import MemberPanel from "./MemberPanel";
 import Scene, { type HudInsets } from "./scene/Scene";
 import { SharedImportPrompt } from "./ShareDialog";
@@ -64,8 +65,8 @@ function useIdleOnCourt() {
 function Logo({ subtitle }: { subtitle: ReactNode }) {
   return (
     <div className="flex min-w-0 items-center gap-2 pr-1">
-      <span className="sport-stripes grid size-10 shrink-0 -rotate-6 place-items-center rounded-xl bg-gradient-to-br from-orange-400 to-pink-500 text-2xl shadow-md md:size-11 md:rounded-2xl">
-        🏸
+      <span className="sport-stripes grid size-10 shrink-0 -rotate-6 place-items-center rounded-xl bg-gradient-to-br from-orange-400 to-pink-500 shadow-md md:size-11 md:rounded-2xl">
+        <FoxMark className="relative size-8 md:size-9" />
       </span>
       <div className="min-w-0 leading-none">
         <h1 className="font-display truncate bg-gradient-to-r from-orange-500 via-pink-500 to-sky-500 bg-clip-text pr-1 text-base font-extrabold italic tracking-wide text-transparent md:text-xl">
