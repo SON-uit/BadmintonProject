@@ -45,10 +45,16 @@ export interface Candidate {
   played: number;
   /** Đã chờ bao lâu. */
   waitedMs: number;
+  /** Vừa đánh xong trận gần nhất — để nghỉ, chỉ xếp khi không còn ai khác. */
+  justPlayed?: boolean;
 }
 
-/** Ưu tiên: ít trận hơn trước; bằng trận thì ai chờ lâu hơn trước. */
-export const byPriority = (a: Candidate, b: Candidate) => a.played - b.played || b.waitedMs - a.waitedMs;
+/** Ưu tiên: người vừa đánh xong xếp sau cùng; rồi ít trận hơn trước; bằng trận thì ai chờ lâu hơn trước. */
+export const byPriority = (a: Candidate, b: Candidate) =>
+  Number(!!a.justPlayed) - Number(!!b.justPlayed) || a.played - b.played || b.waitedMs - a.waitedMs;
+
+/** Phạt điểm khi phải lấy người vừa đánh xong: luôn nặng hơn mọi chênh lệch thứ hạng. */
+const JUST_PLAYED_PENALTY = 1_000_000;
 
 /** Các khoảng trình [thấp, cao] hợp lệ cho từng tính chất trận. */
 const LEVEL_WINDOWS: Record<Vibe, [number, number][]> = {
@@ -108,7 +114,7 @@ export function pickForMatch(pool: Candidate[], existing: Member[], type: Double
       if (!isWalkIn(level) && (level < lo || level > hi)) return;
       if (gender === "male" ? m >= needMale : f >= needFemale) return;
       picked.push(c.member);
-      score += rank; // hạng càng nhỏ = càng được ưu tiên
+      score += rank + (c.justPlayed ? JUST_PLAYED_PENALTY : 0); // hạng càng nhỏ = càng được ưu tiên
       if (gender === "male") m++;
       else f++;
     });
@@ -175,16 +181,28 @@ export function playedCount(matches: Match[]): Map<string, number> {
   return map;
 }
 
-/** Thứ tự hàng chờ theo ưu tiên vào sân: ít trận trước, bằng trận thì chờ lâu trước. */
+/** Những người của trận vừa kết thúc gần nhất (trong danh sách trận truyền vào). */
+export function justPlayedIds(matches: Match[]): Set<string> {
+  let last: Match | undefined;
+  for (const m of matches) if (!last || m.endedAt > last.endedAt) last = m;
+  return new Set(last ? [...last.teamA, ...last.teamB].map((p) => p.id) : []);
+}
+
+/**
+ * Thứ tự hàng chờ theo ưu tiên vào sân: người vừa đánh xong xếp sau cùng;
+ * còn lại ít trận trước, bằng trận thì chờ lâu trước.
+ */
 export function sortQueueByPriority(
   queue: string[],
   played: Map<string, number>,
   queuedAt: Record<string, number>,
+  justPlayed: Set<string> = new Set(),
 ): string[] {
   return queue
     .map((id, index) => ({ id, index }))
     .sort(
       (a, b) =>
+        Number(justPlayed.has(a.id)) - Number(justPlayed.has(b.id)) ||
         (played.get(a.id) ?? 0) - (played.get(b.id) ?? 0) ||
         (queuedAt[a.id] ?? Infinity) - (queuedAt[b.id] ?? Infinity) ||
         a.index - b.index,

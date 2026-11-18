@@ -319,7 +319,7 @@ function FinishDialog({ courtId, onClose }: { courtId: string; onClose: () => vo
 }
 
 /* ------------------------------------------------------------------ */
-/* Quản lý thành viên: lưới gọn để thấy cả 25 người không cần cuộn       */
+/* Quản lý thành viên: lưới gọn để thấy nhiều người không cần cuộn       */
 /* ------------------------------------------------------------------ */
 
 /** Ô nhập nhiều dòng tự giãn theo nội dung (tối đa ~40% chiều cao màn hình, quá thì cuộn). */
@@ -751,7 +751,7 @@ function RosterDialog({ initialEditId, onClose }: { initialEditId: string | null
         ) : shown.length === 0 ? (
           <p className="py-4 text-center text-sm font-medium text-slate-500">Không có ai trong mục này.</p>
         ) : (
-          // lưới nhiều cột: 25 người vừa 5 hàng trên màn hình rộng
+          // lưới nhiều cột cho danh sách đông người trên màn hình rộng
           <ul
             className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
             aria-label="Danh sách thành viên"

@@ -11,6 +11,7 @@ import {
   byPriority,
   detectType,
   fmtClock,
+  justPlayedIds,
   matchesOfDay,
   pickForMatch,
   playedCount,
@@ -640,7 +641,10 @@ export const useGame = create<GameState>()(
           return false;
         }
         const byId = new Map(s.members.map((m) => [m.id, m]));
-        const played = playedCount(matchesOfDay(s.matches));
+        const today = matchesOfDay(s.matches);
+        const played = playedCount(today);
+        // Ngẫu Nhiên: xếp bình thường, không né người vừa đánh xong
+        const justPlayed = vibe === "random" ? new Set<string>() : justPlayedIds(today);
         const now = Date.now();
         const inCourt = court.slots.filter((id): id is string => !!id);
         const existing = replace ? [] : inCourt.map((id) => byId.get(id)).filter((m): m is Member => !!m);
@@ -654,8 +658,9 @@ export const useGame = create<GameState>()(
             member,
             played: played.get(member.id) ?? 0,
             waitedMs: now - (s.queuedAt[member.id] ?? now),
+            justPlayed: justPlayed.has(member.id),
           }));
-        // Ngẫu Nhiên: giữ nguyên thứ tự đã xáo (bốc thăm) · còn lại: sắp theo ưu tiên ít trận, chờ lâu
+        // Ngẫu Nhiên: giữ nguyên thứ tự đã xáo (bốc thăm) · còn lại: người vừa đánh xong để sau cùng, rồi ít trận, chờ lâu
         if (vibe !== "random") pool.sort(byPriority);
 
         const result = pickForMatch(pool, existing, type, vibe);

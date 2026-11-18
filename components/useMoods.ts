@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { matchesOfDay, playedCount, sortQueueByPriority } from "@/lib/logic";
+import { justPlayedIds, matchesOfDay, playedCount, sortQueueByPriority } from "@/lib/logic";
 import { computeMoods } from "@/lib/mood";
 import { useGame } from "@/lib/store";
 
@@ -17,7 +17,7 @@ function useTick() {
 
 /**
  * Góc nhìn chung về hàng chờ, dùng cho cả danh sách lẫn cảnh 3D:
- * - `order`: hàng chờ sắp theo ưu tiên vào sân (ít trận trước, bằng trận thì chờ lâu trước)
+ * - `order`: hàng chờ sắp theo ưu tiên vào sân (người vừa đánh xong sau cùng; ít trận trước, bằng trận thì chờ lâu trước)
  * - `moods`: thời gian chờ + mức bực của từng người đang chờ
  * - `played`: số trận hôm nay của từng người
  */
@@ -31,9 +31,10 @@ export function useQueueView() {
   return useMemo(() => {
     // Math.max: thay đổi dữ liệu (thêm người, kết thúc trận) được tính ngay, không đợi nhịp 15 giây
     const now = Math.max(tick, Date.now());
-    const played = playedCount(matchesOfDay(matches, now));
+    const today = matchesOfDay(matches, now);
+    const played = playedCount(today);
     return {
-      order: sortQueueByPriority(queue, played, queuedAt),
+      order: sortQueueByPriority(queue, played, queuedAt, justPlayedIds(today)),
       moods: computeMoods(members, queue, queuedAt, matches, now),
       played,
     };

@@ -12,7 +12,7 @@ npm run dev      # http://localhost:3000
 ## Chức năng
 
 - **Sân**: thêm / xóa sân, bấm vào tên sân để đổi tên. Xóa sân đang có người sẽ đưa họ về hàng chờ (trận dở không ghi lịch sử).
-- **Thành viên** (tối đa 25 người — `MAX_MEMBERS` trong `lib/types.ts`): hộp thoại riêng để thêm từng người, dán nhiều tên cùng lúc, sửa tên / giới tính / trình độ, xóa. Danh sách hiện dạng lưới thẻ gọn (tới 5 cột) để xem cả 25 người gần như không phải cuộn, có lọc Tất cả / Có mặt / Chưa đến / Đã về.
+- **Thành viên** (tối đa 50 người — `MAX_MEMBERS` trong `lib/types.ts`): hộp thoại riêng để thêm từng người, dán nhiều tên cùng lúc, sửa tên / giới tính / trình độ, xóa. Danh sách hiện dạng lưới thẻ gọn (tới 5 cột) để xem nhiều người cùng lúc, có lọc Tất cả / Có mặt / Chưa đến / Đã về.
 - **Xác nhận vào / rời sân**: nút ✓ Vào chốt giờ đến và đưa người đó vào hàng chờ; nút 🚪 chốt giờ về và đưa ra khỏi hàng chờ (không về được khi đang đánh). Người chưa đến / đã về nằm ở cuối bảng thành viên.
 - **Trình độ** hiện bằng biệt danh "gà", trình chú thích trong ngoặc:
 
@@ -26,7 +26,7 @@ npm run dev      # http://localhost:3000
   | TBY+ | 🐓 Gà Đại Ca |
   | TB | 👑 Gà Trùm |
 
-- **Hàng chờ**: mỗi người hiện thời gian đã chờ (tính từ lúc tham gia hoặc lúc đánh xong trận gần nhất) và số trận hôm nay. Danh sách luôn sắp theo ưu tiên vào sân: **ít trận trước, bằng trận thì chờ lâu trước**.
+- **Hàng chờ**: mỗi người hiện thời gian đã chờ (tính từ lúc tham gia hoặc lúc đánh xong trận gần nhất) và số trận hôm nay. Danh sách luôn sắp theo ưu tiên vào sân: **người vừa đánh xong trận gần nhất xếp sau cùng (chỉ vào sân khi không còn ai khác hợp lệ), sau đó ít trận trước, bằng trận thì chờ lâu trước**. Tính chất Ngẫu Nhiên thì bốc thăm bình thường, không né người vừa đánh.
 - **Xếp trận tự động** (nút 🎲 Xếp trận): chọn sân → thể loại (Đôi nam / Đôi nữ / Đôi nam nữ) → tính chất:
 
   | Tính chất | Quy tắc trình của 4 người |

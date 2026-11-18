@@ -10,7 +10,7 @@ export const isWalkIn = (level: Level) => level === WALK_IN;
 export const balanceLevel = (level: Level) => (level === WALK_IN ? 4 : level);
 
 /** Số thành viên tối đa của một buổi. */
-export const MAX_MEMBERS = 25;
+export const MAX_MEMBERS = 50;
 
 export interface LevelInfo {
   value: Level;
